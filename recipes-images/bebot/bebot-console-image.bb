@@ -15,13 +15,10 @@ FIRMWARE_INSTALL = " \
 "
 
 SYSTEM_TOOLS_INSTALL = " \
-  alsa-utils \
-  systemd-analyze \
   tzdata \
 "
 
 DEV_TOOLS_INSTALL = " \
-  memtester \
   mtd-utils-ubifs \
   u-boot-mkimage \
 "
@@ -35,29 +32,17 @@ NETWORK_TOOLS_INSTALL = " \
 
 MEDIA_TOOLS_INSTALL = " \
   media-ctl \
-  raw2rgbpnm \
   v4l-utils \
   yavta \
 "
 
-GRAPHICS_LIBS = " \
-  mtdev \ 
-  tslib \
-"  
-
 UTILITIES_INSTALL = " \
   coreutils \
-  diffutils \
-  findutils \
   grep \
   gzip \
-  less \
   nano \
-  packagegroup-cli-tools \
-  packagegroup-cli-tools-debug \
   sudo \
   tar \
-  vim \
   wget \
   zip \
 "
@@ -68,7 +53,6 @@ IMAGE_INSTALL += " \
   ${DEV_TOOLS_INSTALL} \
   ${NETWORK_TOOLS_INSTALL} \
   ${MEDIA_TOOLS_INSTALL} \
-  ${GRAPHICS_LIBS} \
   ${UTILITIES_INSTALL} \
 "
 
