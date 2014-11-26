@@ -2,7 +2,7 @@ require u-boot.inc
 
 PV = "2014.01"
 
-COMPATIBLE_MACHINE = "overo|duovero"
+COMPATIBLE_MACHINE = "bebot"
 
 # v2014.01
 SRCREV = "b44bd2c73c4cfb6e3b9e7f8cf987e8e39aa74a0b"

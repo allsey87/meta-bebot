@@ -2,12 +2,10 @@ require recipes-kernel/linux/linux-yocto.inc
 
 KERNEL_IMAGETYPE = "uImage"
 
-COMPATIBLE_MACHINE = "overo"
+COMPATIBLE_MACHINE = "bebot"
 
 LINUX_VERSION = "3.5.7"
 LINUX_VERSION_EXTENSION = "-custom"
-
-BOOT_SPLASH ?= "logo_linux_clut224-generic.ppm"
 
 # Patches for all releases in linux-3.5.y but PV specifies upstream base.
 # Patches at: git://github.com/gumstix/linux.git;branch=omap-3.5
@@ -55,5 +53,4 @@ SRC_URI = " \
     file://0035-OMAP2-3-clock-fix-sprz319-erratum-2.1.patch \
     file://add_missing_ioctls.patch \
     file://defconfig \
-    file://${BOOT_SPLASH} \
 "
