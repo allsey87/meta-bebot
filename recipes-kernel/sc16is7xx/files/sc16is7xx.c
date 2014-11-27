@@ -16,7 +16,7 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/gpio.h>
-#include <linux/i2c.h>
+#include <linux/spi/spi.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -294,6 +294,12 @@
 #define SC16IS7XX_FIFO_SIZE		(64)
 #define SC16IS7XX_REG_SHIFT		2
 
+/* Hack - this identifier doesn't exist in 3.5 (108 is the identifier from 3.17) */
+#define PORT_SC16IS7XX 108
+/* Hack - the power state enumeration didn't exist in 3.5, manually define the constants */
+#define UART_PM_STATE_ON 0
+#define UART_PM_STATE_OFF 3
+
 struct sc16is7xx_devtype {
 	char	name[10];
 	int	nr_gpio;
@@ -471,6 +477,7 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 				unsigned int iir)
 {
 	struct sc16is7xx_port *s = dev_get_drvdata(port->dev);
+	struct tty_struct *tty;
 	unsigned int lsr = 0, ch, flag, bytes_read, i;
 	bool read_lsr = (iir == SC16IS7XX_IIR_RLSE_SRC) ? true : false;
 
@@ -545,7 +552,8 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 		rxlen -= bytes_read;
 	}
 
-	tty_flip_buffer_push(&port->state->port);
+	tty = tty_port_tty_get(&port->state->port);
+	tty_flip_buffer_push(tty);
 }
 
 static void sc16is7xx_handle_tx(struct uart_port *port)
@@ -1063,6 +1071,8 @@ static int sc16is7xx_probe(struct device *dev,
 	int i, ret;
 	struct sc16is7xx_port *s;
 
+	printk("ENTRY: sc16is7xx_probe\n");
+
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
@@ -1215,36 +1225,37 @@ static struct regmap_config regcfg = {
 	.precious_reg = sc16is7xx_regmap_precious,
 };
 
-static int sc16is7xx_i2c_probe(struct i2c_client *i2c,
-			       const struct i2c_device_id *id)
+static int sc16is7xx_spi_probe(struct spi_device *spi)
 {
 	struct sc16is7xx_devtype *devtype;
 	unsigned long flags = 0;
 	struct regmap *regmap;
 
-	if (i2c->dev.of_node) {
+	printk("ENTRY: sc16is7xx_spi_probe\n");
+
+	if (spi->dev.of_node) {
 		const struct of_device_id *of_id =
-				of_match_device(sc16is7xx_dt_ids, &i2c->dev);
+				of_match_device(sc16is7xx_dt_ids, &spi->dev);
 
 		devtype = (struct sc16is7xx_devtype *)of_id->data;
 	} else {
-		devtype = (struct sc16is7xx_devtype *)id->driver_data;
+		devtype = (struct sc16is7xx_devtype *)spi_get_device_id(spi)->driver_data;
 		flags = IRQF_TRIGGER_FALLING;
 	}
 
 	regcfg.max_register = (0xf << SC16IS7XX_REG_SHIFT) |
 			      (devtype->nr_uart - 1);
-	regmap = devm_regmap_init_i2c(i2c, &regcfg);
+	regmap = devm_regmap_init_spi(spi, &regcfg);
 
-	return sc16is7xx_probe(&i2c->dev, devtype, regmap, i2c->irq, flags);
+	return sc16is7xx_probe(&spi->dev, devtype, regmap, spi->irq, flags);
 }
 
-static int sc16is7xx_i2c_remove(struct i2c_client *client)
+static int sc16is7xx_spi_remove(struct spi_device *spi)
 {
-	return sc16is7xx_remove(&client->dev);
+	return sc16is7xx_remove(&spi->dev);
 }
 
-static const struct i2c_device_id sc16is7xx_i2c_id_table[] = {
+static const struct spi_device_id sc16is7xx_spi_id_table[] = {
 	{ "sc16is74x",	(kernel_ulong_t)&sc16is74x_devtype, },
 	{ "sc16is750",	(kernel_ulong_t)&sc16is750_devtype, },
 	{ "sc16is752",	(kernel_ulong_t)&sc16is752_devtype, },
@@ -1252,20 +1263,20 @@ static const struct i2c_device_id sc16is7xx_i2c_id_table[] = {
 	{ "sc16is762",	(kernel_ulong_t)&sc16is762_devtype, },
 	{ }
 };
-MODULE_DEVICE_TABLE(i2c, sc16is7xx_i2c_id_table);
+MODULE_DEVICE_TABLE(spi, sc16is7xx_spi_id_table);
 
-static struct i2c_driver sc16is7xx_i2c_uart_driver = {
+static struct spi_driver sc16is7xx_spi_uart_driver = {
 	.driver = {
 		.name		= SC16IS7XX_NAME,
 		.owner		= THIS_MODULE,
 		.of_match_table	= of_match_ptr(sc16is7xx_dt_ids),
 	},
-	.probe		= sc16is7xx_i2c_probe,
-	.remove		= sc16is7xx_i2c_remove,
-	.id_table	= sc16is7xx_i2c_id_table,
+	.probe		= sc16is7xx_spi_probe,
+	.remove		= sc16is7xx_spi_remove,
+	.id_table	= sc16is7xx_spi_id_table,
 };
-module_i2c_driver(sc16is7xx_i2c_uart_driver);
-MODULE_ALIAS("i2c:sc16is7xx");
+module_spi_driver(sc16is7xx_spi_uart_driver);
+MODULE_ALIAS("spi:sc16is7xx");
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jon Ringle <jringle@gridpoint.com>");
