@@ -1,8 +1,10 @@
-DESCRIPTION = "A basic console image for the BeBot Robot"
+DESCRIPTION = "A basic console image for Gumstix boards."
 LICENSE = "MIT"
-PR = "r0"
 
 IMAGE_FEATURES += "splash package-management ssh-server-openssh"
+# Uncomment below to include dev tools and packages
+# IMAGE_FEATURES += "tools-sdk dev-pkgs"
+
 IMAGE_LINGUAS = "en-us"
 
 inherit core-image
@@ -12,9 +14,12 @@ inherit core-image
 FIRMWARE_INSTALL = " \
   linux-firmware-sd8686 \
   linux-firmware-sd8787 \
+  linux-firmware-wl18xx \
 "
 
 SYSTEM_TOOLS_INSTALL = " \
+  alsa-utils \
+  cpufrequtils \
   tzdata \
 "
 
@@ -24,22 +29,27 @@ DEV_TOOLS_INSTALL = " \
 "
 
 NETWORK_TOOLS_INSTALL = " \
-  init-ifupdown \
+  curl \
   iputils \
   iw \
   ntp \
+  ti-wifi-utils \
+  uim \
 "
 
 MEDIA_TOOLS_INSTALL = " \
-  media-ctl \
+  raw2rgbpnm \
   v4l-utils \
   yavta \
 "
 
 UTILITIES_INSTALL = " \
   coreutils \
+  diffutils \
+  findutils \
   grep \
   gzip \
+  less \
   nano \
   sudo \
   tar \
@@ -56,9 +66,11 @@ IMAGE_INSTALL += " \
   ${UTILITIES_INSTALL} \
 "
 
-set_gumstix_user() {
-	#To allow shutdown/restart
-	echo "%sudo ALL=(ALL) ALL" >> ${IMAGE_ROOTFS}/etc/sudoers
-}
-
-ROOTFS_POSTPROCESS_COMMAND =+ "set_gumstix_user;"
+# Create a generic 'gumstix' user account, part of the gumstix group,
+# using '/bin/sh' and with a home directory '/home/gumstix' (see
+# /etc/default/useradd).  We set the password to 'gumstix' and add them
+# to the 'sudo' group.
+inherit extrausers
+EXTRA_USERS_PARAMS = " \
+    useradd -P gumstix -G sudo gumstix; \
+"

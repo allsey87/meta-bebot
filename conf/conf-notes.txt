@@ -1,0 +1,8 @@
+The included meta-bebot layer makes the bebot machines available. 
+
+To (re-)build just the bootloader or kernel, use these commands:
+
+    $ bitbake virtual/bootloader
+    $ bitbake virtual/kernel
+
+See https://github.com/allsey87/meta-bebot for more details.

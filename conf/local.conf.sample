@@ -14,8 +14,6 @@ LICENSE_FLAGS_WHITELIST = "commercial"
 # variable as required.
 
 # Set a few Preferred Providers that aren't specified elsewhere
-PREFERRED_PROVIDER_jpeg = "jpeg"
-PREFERRED_PROVIDER_jpeg-native = "jpeg-native"
 PREFERRED_PROVIDER_sshd = "openssh"
 
 # Use Gumstix source mirror as default premirror
@@ -29,12 +27,12 @@ INHERIT += "own-mirrors"
 # These two options control how much parallelism BitBake should use. The first 
 # option determines how many tasks bitbake should run in parallel:
 #
-BB_NUMBER_THREADS ?= "16"
+BB_NUMBER_THREADS ?= "${@oe.utils.cpu_count()}"
 # 
 # The second option controls how many processes make should run in parallel when
 # running compile tasks:
 #
-PARALLEL_MAKE ?= "-j 16"
+PARALLEL_MAKE ?= "-j ${@oe.utils.cpu_count()}"
 #
 # For a quad-core machine, BB_NUMBER_THREADS = "4", PARALLEL_MAKE = "-j 4" would
 # be appropriate for example.
@@ -59,7 +57,7 @@ PARALLEL_MAKE ?= "-j 16"
 #MACHINE ?= "mpc8315e-rdb"
 #MACHINE ?= "routerstationpro"
 #
-# This sets the default machine to be qemux86 if no other machine is selected:
+# This sets the default machine to be bebot if no other machine is selected:
 MACHINE ?= "bebot"
 
 #
@@ -131,7 +129,10 @@ DISTRO ?= "poky"
 # E.g.: PACKAGE_CLASSES ?= "package_rpm package_deb package_ipk"
 # We default to rpm:
 PACKAGE_CLASSES ?= "package_rpm"
-PACKAGE_FEED_URIS = "https://packages.gumstix.com/master/"
+PACKAGE_FEED_URIS = "https://packages.gumstix.com/dizzy"
+
+# Use local PR server by default
+PRSERV_HOST ?= "localhost:0"
 
 #
 # SDK/ADT target architecture
@@ -236,25 +237,3 @@ PATCHRESOLVE = "noop"
 # track the version of this file when it was generated. This can safely be ignored if
 # this doesn't mean anything to you.
 CONF_VERSION = "1"
-
-# 
-# Gumstix shared distro features
-#
-DISTRO_FEATURES_append = " systemd pam"
-VIRTUAL-RUNTIME_init_manager = "systemd"
-VIRTUAL-RUNTIME_graphical_init_manager = "lxdm"
-DISTRO_FEATURES_BACKFILL_CONSIDERED = "sysvinit"
-
-#
-# Set up Gumstix user
-#
-INHERIT += "extrausers"
-
-EXTRA_USERS_PARAMS = "\
-	groupadd gumstix; \
-	groupadd network; \
-	groupadd sudo; \
-	useradd -p 'VQ43An5F8LYqc' -d /home/gumstix -g gumstix -G network,sudo -s /bin/sh gumstix; \
-"
-
-
