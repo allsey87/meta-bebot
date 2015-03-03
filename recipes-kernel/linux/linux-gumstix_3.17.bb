@@ -5,7 +5,7 @@ COMPATIBLE_MACHINE = "bebot"
 # Pull in the devicetree files into the rootfs
 RDEPENDS_kernel-base += "kernel-devicetree"
 
-KERNEL_DEVICETREE_duovero = "omap4-duovero-parlor.dtb"
+KERNEL_DEVICETREE_bebot = "omap4-duovero-parlor.dtb"
 
 LINUX_VERSION = "3.17"
 LINUX_VERSION_EXTENSION = "-custom"
