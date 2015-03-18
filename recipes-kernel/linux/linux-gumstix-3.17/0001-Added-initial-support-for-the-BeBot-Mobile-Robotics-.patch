@@ -1,0 +1,309 @@
+From cc160ece18c544019e38bce7801b6ad0fc9921e1 Mon Sep 17 00:00:00 2001
+From: Michael Allwright <allsey87@gmail.com>
+Date: Tue, 17 Mar 2015 16:20:37 +0100
+Subject: [PATCH 1/2] Added initial support for the BeBot Mobile Robotics
+ Platform
+
+---
+ arch/arm/boot/dts/Makefile                |   3 +-
+ arch/arm/boot/dts/omap4-duovero-bebot.dts | 274 ++++++++++++++++++++++++++++++
+ 2 files changed, 276 insertions(+), 1 deletion(-)
+ create mode 100644 arch/arm/boot/dts/omap4-duovero-bebot.dts
+
+diff --git a/arch/arm/boot/dts/Makefile b/arch/arm/boot/dts/Makefile
+index e6aa6e7..8f8659c 100644
+--- a/arch/arm/boot/dts/Makefile
++++ b/arch/arm/boot/dts/Makefile
+@@ -317,7 +317,8 @@ dtb-$(CONFIG_SOC_AM33XX) += am335x-base0033.dtb \
+ 	am335x-evmsk.dtb \
+ 	am335x-nano.dtb \
+ 	am335x-pepper.dtb
+-dtb-$(CONFIG_ARCH_OMAP4) += omap4-duovero-parlor.dtb \
++dtb-$(CONFIG_ARCH_OMAP4) += omap4-duovero-bebot.dtb \
++	omap4-duovero-parlor.dtb \
+ 	omap4-panda.dtb \
+ 	omap4-panda-a4.dtb \
+ 	omap4-panda-es.dtb \
+diff --git a/arch/arm/boot/dts/omap4-duovero-bebot.dts b/arch/arm/boot/dts/omap4-duovero-bebot.dts
+new file mode 100644
+index 0000000..682e5ca
+--- /dev/null
++++ b/arch/arm/boot/dts/omap4-duovero-bebot.dts
+@@ -0,0 +1,274 @@
++/*
++ * Copyright (C) 2014 Florian Vaussard, EPFL Mobots group
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++/dts-v1/;
++
++#include "omap4-duovero.dtsi"
++
++#include <dt-bindings/input/input.h>
++
++/ {
++	model = "BeBot Minature Robot powered by Gumstix Duovero";
++	compatible = "upb,omap4-duovero-bebot", "gumstix,omap4-duovero", "ti,omap4430", "ti,omap4";
++
++	aliases {
++		display0 = &hdmi0;
++	};
++
++	leds {
++		compatible = "gpio-leds";
++		led0 {
++			label = "duovero:blue:led0";
++			gpios = <&gpio4 26 GPIO_ACTIVE_HIGH>;	/* gpio_122 */
++			linux,default-trigger = "heartbeat";
++		};
++	};
++
++	gpio_keys {
++		compatible = "gpio-keys";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		button0@121 {
++			label = "button0";
++			linux,code = <BTN_0>;
++			gpios = <&gpio4 25 GPIO_ACTIVE_LOW>;	/* gpio_121 */
++			gpio-key,wakeup;
++		};
++	};
++
++	hdmi0: connector@0 {
++		compatible = "hdmi-connector";
++		label = "hdmi";
++
++		type = "d";
++
++		hpd-gpios = <&gpio2 31 GPIO_ACTIVE_HIGH>;	/* gpio_63 */
++
++		port {
++			hdmi_connector_in: endpoint {
++				remote-endpoint = <&hdmi_out>;
++			};
++		};
++	};
++
++	ocp {
++		iss: iss@52000000 {
++			compatible = "ti,omap4-iss";
++			reg = <0x52000000 0x100>, /* top */
++			      <0x52001000 0x170>, /* csi2_a_regs1 */
++			      <0x52001170 0x020>, /* camerarx_core1 */
++			      <0x52001400 0x170>, /* csi2_b_regs1 */
++			      <0x52001570 0x020>, /* camerarx_core2 */
++			      <0x52002000 0x200>, /* bte */
++			      <0x52010000 0x0a0>, /* isp_sys1 */
++			      <0x52010400 0x400>, /* isp_resizer */
++			      <0x52010800 0x800>, /* isp_ipipe */
++			      <0x52011000 0x200>, /* isp_isif */
++			      <0x52011200 0x080>; /* isp_ipipeif */
++			reg-names = "top",
++			            "csi2_a_regs1",
++			            "camerarx_core1",
++			            "csi2_b_regs1",
++			            "camerarx_core2",
++			            "bte",
++			            "isp_sys1",
++			            "isp_resizer",
++			            "isp_ipipe",
++			            "isp_isif",
++			            "isp_ipipeif";
++			status = "ok";
++			ti,hwmods = "iss";
++			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
++			//clocks = <&ducati_clk_mux_ck>, <&iss_ctrlclk>;
++			//clock-names = "fck", "iss_ctrlclk";
++
++		        csi21: csi2 {
++				endpoint {
++					channel = "0";
++					clock-lanes = <0>;
++					data-lanes = <1>;
++					remote-endpoint = <&ov5640_1>;
++				};
++			};
++		};
++	};
++};
++
++&omap4_pmx_core {
++	pinctrl-0 = <
++			&led_pins
++			&button_pins
++			&smsc_pins
++			&camera_pins
++	>;
++
++	led_pins: pinmux_led_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x116, PIN_OUTPUT | MUX_MODE3)		/* abe_dmic_din3.gpio_122 */
++		>;
++	};
++
++	button_pins: pinmux_button_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x114, PIN_INPUT_PULLUP | MUX_MODE3)	/* abe_dmic_din2.gpio_121 */
++		>;
++	};
++
++	camera_pins: pinmux_camera_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x0be, PIN_OUTPUT | MUX_MODE3)		/* cam_strobe.gpio_82 */
++			OMAP4_IOPAD(0x0c0, PIN_OUTPUT | MUX_MODE3)		/* cam_globalreset.gpio_83 */
++			OMAP4_IOPAD(0x19a, PIN_OUTPUT | MUX_MODE0)		/* fref_clk1_out */
++		>;
++	};
++
++
++	i2c2_pins: pinmux_i2c2_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x126, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c2_scl */
++			OMAP4_IOPAD(0x128, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c2_sda */
++		>;
++	};
++
++	i2c3_pins: pinmux_i2c3_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x12a, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c3_scl */
++			OMAP4_IOPAD(0x12c, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c3_sda */
++		>;
++	};
++
++	smsc_pins: pinmux_smsc_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x068, PIN_INPUT | MUX_MODE3)		/* gpmc_a20.gpio_44: IRQ */
++			OMAP4_IOPAD(0x06a, PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a21.gpio_45: nReset */
++			OMAP4_IOPAD(0x070, PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a24.gpio_48: amdix enabled */
++		>;
++	};
++
++	dss_hdmi_pins: pinmux_dss_hdmi_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x098, PIN_INPUT | MUX_MODE3)		/* hdmi_hpd.gpio_63 */
++			OMAP4_IOPAD(0x09a, PIN_INPUT_PULLUP | MUX_MODE0)	/* hdmi_cec.hdmi_cec */
++			OMAP4_IOPAD(0x09c, PIN_INPUT_PULLUP | MUX_MODE0)	/* hdmi_ddc_scl.hdmi_ddc_scl */
++			OMAP4_IOPAD(0x09e, PIN_INPUT_PULLUP | MUX_MODE0)	/* hdmi_ddc_sda.hdmi_ddc_sda */
++		>;
++	};
++
++	iss_csi21_pins: pinmux_iss_csi21_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x0a0, PIN_INPUT | MUX_MODE0)		/* csi21_dx0.csi21_dx0 */
++			OMAP4_IOPAD(0x0a2, PIN_INPUT | MUX_MODE0)		/* csi21_dy0.csi21_dy0 */
++			OMAP4_IOPAD(0x0a4, PIN_INPUT | MUX_MODE0)		/* csi21_dx1.csi21_dx1 */
++			OMAP4_IOPAD(0x0a6, PIN_INPUT | MUX_MODE0)		/* csi21_dy1.csi21_dy1 */
++			OMAP4_IOPAD(0x0a8, PIN_INPUT | MUX_MODE0)		/* csi21_dx2.csi21_dx2 */
++			OMAP4_IOPAD(0x0aa, PIN_INPUT | MUX_MODE0)		/* csi21_dy2.csi21_dy2 */
++		>;
++	};
++};
++
++&i2c2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c2_pins>;
++
++	clock-frequency = <400000>;
++};
++
++&i2c3 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c3_pins>;
++	status = "ok";
++
++	clock-frequency = <100000>;
++
++	ov5640: camera@3c {
++		compatible = "omnivision,ov5640";
++		status = "ok";
++		reg = <0x3c>;
++
++		pwdn-gpios = <&gpio3 18 GPIO_ACTIVE_HIGH>;	/* gpio_82 - power down */
++		reset-gpios = <&gpio3 19 GPIO_ACTIVE_LOW>;	/* gpio_83 - reset */
++
++		clocks = <&auxclk1_ck>;
++		
++		port {
++			ov5640_1: endpoint {
++				clock-lanes = <0>;
++				data-lanes = <1>;
++				remote-endpoint = <&csi21>;
++			};
++		};
++	};
++};
++
++&mmc3 {
++	status = "disabled";
++};
++
++#include "omap-gpmc-smsc911x.dtsi"
++
++&gpmc {
++	ranges = <5 0 0x2c000000 0x1000000>;			/* CS5 */
++
++	ethernet@gpmc {
++		reg = <5 0 0xff>;
++		interrupt-parent = <&gpio2>;
++		interrupts = <12 IRQ_TYPE_LEVEL_LOW>;		/* gpio_44 */
++
++		phy-mode = "mii";
++
++		gpmc,cs-on-ns = <10>;
++		gpmc,cs-rd-off-ns = <50>;
++		gpmc,cs-wr-off-ns = <50>;
++		gpmc,adv-on-ns = <0>;
++		gpmc,adv-rd-off-ns = <10>;
++		gpmc,adv-wr-off-ns = <10>;
++		gpmc,oe-on-ns = <15>;
++		gpmc,oe-off-ns = <50>;
++		gpmc,we-on-ns = <15>;
++		gpmc,we-off-ns = <50>;
++		gpmc,rd-cycle-ns = <50>;
++		gpmc,wr-cycle-ns = <50>;
++		gpmc,access-ns = <50>;
++		gpmc,page-burst-access-ns = <0>;
++		gpmc,bus-turnaround-ns = <35>;
++		gpmc,cycle2cycle-delay-ns = <35>;
++		gpmc,wr-data-mux-bus-ns = <35>;
++		gpmc,wr-access-ns = <50>;
++
++		gpmc,mux-add-data = <2>;
++		gpmc,sync-read;
++		gpmc,sync-write;
++		gpmc,clk-activation-ns = <5>;
++		gpmc,sync-clk-ps = <20000>;
++	};
++};
++
++&dss {
++	status = "disabled";
++};
++
++&iss {
++	status = "ok";
++
++	pinctrl-names = "default";
++	pinctrl-0 = <&iss_csi21_pins>;
++};
++
++&hdmi {
++	status = "disabled";
++	vdda-supply = <&vdac>;
++
++	pinctrl-names = "default";
++	pinctrl-0 = <&dss_hdmi_pins>;
++
++	port {
++		hdmi_out: endpoint {
++			remote-endpoint = <&hdmi_connector_in>;
++		};
++	};
++};
++
+-- 
+1.9.1
+
