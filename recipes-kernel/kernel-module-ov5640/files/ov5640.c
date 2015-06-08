@@ -124,11 +124,12 @@ struct ov5640 {
 	struct media_pad pad;
 	struct v4l2_mbus_framefmt format;
 
-	struct v4l2_ctrl_handler ctrl_handler;
-
 	const struct ov5640_platform_data *pdata;
 
-	struct v4l2_ctrl *pixel_rate;
+	struct v4l2_ctrl_handler ctrls;
+	struct {
+		struct v4l2_ctrl *pixel_rate;
+	};
 
 	/* HW control */
 	struct clk *xvclk;
@@ -450,7 +451,7 @@ static int ov5640_reg_writes(struct i2c_client *client,
 	for (i = 0; i < size; i++) {
 		err = ov5640_reg_write(client, reglist[i].reg,
 				reglist[i].val);
-		if (err)
+		if (err) {
 			return err;
 	}
 	return 0;
@@ -713,14 +714,14 @@ static int ov5640_s_power(struct v4l2_subdev *sd, int on)
 		if (gpio_is_valid(ov5640->gpio_pwdn)) {
 			gpio_set_value(ov5640->gpio_pwdn,
 				       ov5640->gpio_pwdn_flags & OF_GPIO_ACTIVE_LOW ?
-				       0 : 1);
+				       1 : 0);
 		}
 		usleep_range(2000, 2000);
 	} else {
 		if (gpio_is_valid(ov5640->gpio_pwdn)) {
 			gpio_set_value(ov5640->gpio_pwdn,
 				       ov5640->gpio_pwdn_flags & OF_GPIO_ACTIVE_LOW ?
-				       1 : 0);
+				       0 : 1);
 		}
 		clk_disable(ov5640->xvclk);
 		clk_unprepare(ov5640->xvclk);
@@ -749,6 +750,9 @@ static int ov5640_s_power(struct v4l2_subdev *sd, int on)
 
 static struct v4l2_subdev_core_ops ov5640_subdev_core_ops = {
 	.s_power	= ov5640_s_power,
+/*
+	.s_ctrl = ov5640_s_ctrl (V4L2_CID_AUTO_FOCUS_START)
+*/
 };
 
 static int ov5640_g_fmt(struct v4l2_subdev *sd,
@@ -869,6 +873,7 @@ static int ov5640_s_stream(struct v4l2_subdev *sd, int enable)
 			ret = ov5640_reg_write(client, 0x3108, 0x2);
 		}
 
+		/* bring ov5640 out of power down mode */
 		ret = ov5640_reg_clr(client, 0x3008, 0x40);
 		if (ret)
 			goto out;
@@ -965,20 +970,22 @@ static int ov5640_registered(struct v4l2_subdev *subdev)
 
 	ret = ov5640_reg_writes(client, configscript_common2,
 			ARRAY_SIZE(configscript_common2));
+
 	if (ret)
 		goto out;
 
 	/* Init controls */
-	ret = v4l2_ctrl_handler_init(&ov5640->ctrl_handler, 1);
+	ret = v4l2_ctrl_handler_init(&ov5640->ctrls, 1);
 	if (ret)
 		goto out;
 
-	ov5640->pixel_rate = v4l2_ctrl_new_std(
-				&ov5640->ctrl_handler, NULL,
-				V4L2_CID_PIXEL_RATE,
-				0, 0, 1, 0);
+	ov5640->pixel_rate = v4l2_ctrl_new_std(&ov5640->ctrls,
+					       NULL,
+					       V4L2_CID_PIXEL_RATE,
+					       1, INT_MAX, 1,
+					       ov5640_get_pclk(subdev) / 16);
 
-	subdev->ctrl_handler = &ov5640->ctrl_handler;
+	subdev->ctrl_handler = &ov5640->ctrls;
 out:
 	ov5640_s_power(subdev, 0);
 
@@ -1082,7 +1089,7 @@ get_gpio_pwdn:
 
 	if (gpio_request_one(ov5640->gpio_pwdn,
 			     ov5640->gpio_pwdn_flags & OF_GPIO_ACTIVE_LOW ?
-			     GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+			     GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH,
 			     "OV5640_PWDN")) {
 		dev_err(dev, "Cannot request GPIO %d for power down\n", ov5640->gpio_pwdn);
 		ret = -ENODEV;
@@ -1201,7 +1208,7 @@ static int ov5640_remove(struct i2c_client *i2c)
 	struct ov5640 *ov5640 = to_ov5640(subdev);
 
 	v4l2_async_unregister_subdev(subdev);
-	v4l2_ctrl_handler_free(&ov5640->ctrl_handler);
+	v4l2_ctrl_handler_free(&ov5640->ctrls);
 	media_entity_cleanup(&subdev->entity);
 	v4l2_device_unregister_subdev(subdev);
 	ov5640_put_resources(ov5640);
