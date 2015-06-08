@@ -21,6 +21,7 @@ SYSTEM_TOOLS_INSTALL = " \
   alsa-utils \
   cpufrequtils \
   tzdata \
+  i2c-tools \
 "
 
 DEV_TOOLS_INSTALL = " \
