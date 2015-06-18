@@ -24,6 +24,7 @@ SRC_URI = " \
     file://0001-Added-initial-support-for-the-BeBot-Mobile-Robotics-.patch \
     file://0002-Work-in-progress-commit-updating-the-OMAP4ISS-driver.patch \
     file://0003-Fixed-getting-V4L2_CID_PIXEL_RATE-issue-added-DMA-ch.patch \
+    file://0004-BeBot-Clean-up-device-tree-to-add-LEDs-and-SC16IS7XX.patch \
     file://${BOOT_SPLASH} \
 "
 
