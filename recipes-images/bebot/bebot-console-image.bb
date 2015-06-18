@@ -37,7 +37,9 @@ NETWORK_TOOLS_INSTALL = " \
   ti-wifi-utils \
   uim \
 "
-
+HAL_TOOLS_INSTALL = " \
+  argos3plugins \
+"
 MEDIA_TOOLS_INSTALL = " \
   raw2rgbpnm \
   v4l-utils \
@@ -45,6 +47,7 @@ MEDIA_TOOLS_INSTALL = " \
 "
 
 UTILITIES_INSTALL = " \
+  avrdude \
   coreutils \
   diffutils \
   findutils \
@@ -52,6 +55,7 @@ UTILITIES_INSTALL = " \
   gzip \
   less \
   nano \
+  picocom \
   sudo \
   tar \
   wget \
@@ -66,6 +70,8 @@ IMAGE_INSTALL += " \
   ${MEDIA_TOOLS_INSTALL} \
   ${UTILITIES_INSTALL} \
 "
+
+#  ${HAL_TOOLS_INSTALL}
 
 # Create a generic 'gumstix' user account, part of the gumstix group,
 # using '/bin/sh' and with a home directory '/home/gumstix' (see
