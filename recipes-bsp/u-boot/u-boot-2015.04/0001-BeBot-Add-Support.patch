@@ -1,10 +1,11 @@
-From 8b1d97c8d1057c61cca31912778cee0883a8ae8d Mon Sep 17 00:00:00 2001
+From 2c3cc1c66815175b1615a9d2f8571769da0aaa2c Mon Sep 17 00:00:00 2001
 From: Michael Allwright <allsey87@gmail.com>
-Date: Tue, 17 Mar 2015 16:46:55 +0100
-Subject: [PATCH] Add bebot support
+Date: Thu, 18 Jun 2015 14:03:45 +0200
+Subject: [PATCH] BeBot: Add Support
 
 ---
- board/bebot/Kconfig               |  12 ++
+ arch/arm/cpu/armv7/omap4/Kconfig  |   4 +
+ board/bebot/Kconfig               |   9 ++
  board/bebot/MAINTAINERS           |   6 +
  board/bebot/Makefile              |   8 ++
  board/bebot/bebot.c               | 267 ++++++++++++++++++++++++++++++++++++++
@@ -12,7 +13,7 @@ Subject: [PATCH] Add bebot support
  configs/bebot_defconfig           |   4 +
  include/configs/bebot.h           |  63 +++++++++
  include/configs/ti_omap4_common.h |   2 +
- 8 files changed, 564 insertions(+)
+ 9 files changed, 565 insertions(+)
  create mode 100644 board/bebot/Kconfig
  create mode 100644 board/bebot/MAINTAINERS
  create mode 100644 board/bebot/Makefile
@@ -21,19 +22,38 @@ Subject: [PATCH] Add bebot support
  create mode 100644 configs/bebot_defconfig
  create mode 100644 include/configs/bebot.h
 
+diff --git a/arch/arm/cpu/armv7/omap4/Kconfig b/arch/arm/cpu/armv7/omap4/Kconfig
+index e270895..9a7ab7b 100644
+--- a/arch/arm/cpu/armv7/omap4/Kconfig
++++ b/arch/arm/cpu/armv7/omap4/Kconfig
+@@ -6,6 +6,9 @@ choice
+ config TARGET_DUOVERO
+ 	bool "OMAP4430 Gumstix Duovero"
+ 
++config TARGET_BEBOT
++	bool "OMAP4430 Duovero BeBot"
++
+ config TARGET_OMAP4_PANDA
+ 	bool "TI OMAP4 PandaBoard"
+ 
+@@ -20,6 +23,7 @@ config SYS_CPU
+ config SYS_SOC
+ 	default "omap4"
+ 
++source "board/bebot/Kconfig"
+ source "board/gumstix/duovero/Kconfig"
+ source "board/ti/panda/Kconfig"
+ source "board/ti/sdp4430/Kconfig"
 diff --git a/board/bebot/Kconfig b/board/bebot/Kconfig
 new file mode 100644
-index 0000000..49eb482
+index 0000000..3e11836
 --- /dev/null
 +++ b/board/bebot/Kconfig
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,9 @@
 +if TARGET_BEBOT
 +
 +config SYS_BOARD
 +	default "bebot"
-+
-+config SYS_VENDOR
-+	default "upb"
 +
 +config SYS_CONFIG_NAME
 +	default "bebot"
