@@ -451,7 +451,7 @@ static int ov5640_reg_writes(struct i2c_client *client,
 	for (i = 0; i < size; i++) {
 		err = ov5640_reg_write(client, reglist[i].reg,
 				reglist[i].val);
-		if (err) {
+		if (err)
 			return err;
 	}
 	return 0;
