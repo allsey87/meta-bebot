@@ -1,0 +1,434 @@
+/*
+ * Copyright (C) 2014 Florian Vaussard, EPFL Mobots group
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+#include "omap4-duovero.dtsi"
+
+#include <dt-bindings/input/input.h>
+
+/ {
+	model = "BeBot Minature Robot powered by Gumstix Duovero";
+	compatible = "upb,omap4-duovero-bebot", "gumstix,omap4-duovero", "ti,omap4430", "ti,omap4";
+
+	ocp {
+		iss: iss@52000000 {
+			compatible = "ti,omap4-iss";
+			reg = <0x52000000 0x100>, /* top */
+			      <0x52001000 0x170>, /* csi2_a_regs1 */
+			      <0x52001170 0x020>, /* camerarx_core1 */
+			      <0x52001400 0x170>, /* csi2_b_regs1 */
+			      <0x52001570 0x020>, /* camerarx_core2 */
+			      <0x52002000 0x200>, /* bte */
+			      <0x52010000 0x0a0>, /* isp_sys1 */
+			      <0x52010400 0x400>, /* isp_resizer */
+			      <0x52010800 0x800>, /* isp_ipipe */
+			      <0x52011000 0x200>, /* isp_isif */
+			      <0x52011200 0x080>; /* isp_ipipeif */
+			reg-names = "top",
+			            "csi2_a_regs1",
+			            "camerarx_core1",
+			            "csi2_b_regs1",
+			            "camerarx_core2",
+			            "bte",
+			            "isp_sys1",
+			            "isp_resizer",
+			            "isp_ipipe",
+			            "isp_isif",
+			            "isp_ipipeif";
+			status = "ok";
+			ti,hwmods = "iss";
+			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+			//clocks = <&ducati_clk_mux_ck>, <&iss_ctrlclk>;
+			//clock-names = "fck", "iss_ctrlclk";
+			dmas = <&sdma 9>, <&sdma 10>, <&sdma 12>, <&sdma 13>;
+			dma-names = "1", "2", "3", "4";
+
+		        csi21: csi2 {
+				endpoint {
+					channel = "0";
+					clock-lanes = <0>;
+					data-lanes = <1>;
+					//remote-endpoint = <&ov5640_1>;
+				};
+			};
+		};
+	};
+
+};
+
+&omap4_pmx_core {
+	pinctrl-0 = <
+			&uart56ctrl_pins
+			&uart78ctrl_pins
+	>;
+	
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			OMAP4_IOPAD(0x126, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c2_scl */
+			OMAP4_IOPAD(0x128, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c2_sda */
+		>;
+	};
+
+	i2c3_pins: pinmux_i2c3_pins {
+		pinctrl-single,pins = <
+			OMAP4_IOPAD(0x12a, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c3_scl */
+			OMAP4_IOPAD(0x12c, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c3_sda */
+		>;
+	};
+
+	uart56ctrl_pins: pinmux_uart56ctrl_pins {
+		pinctrl-single,pins = <
+			OMAP4_IOPAD(0x068, PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a20.gpio_44: IRQ */
+			OMAP4_IOPAD(0x06a, PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a21.gpio_45: NRST */
+			OMAP4_IOPAD(0x0bc, PIN_OUTPUT | MUX_MODE3)		/* cam_shutter.gpio_81: CLK_EN */
+		>;
+	};
+
+	uart78ctrl_pins: pinmux_uart78ctrl_pins {
+		pinctrl-single,pins = <
+			OMAP4_IOPAD(0x070, PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a24.gpio_48: IRQ */
+			OMAP4_IOPAD(0x06c, PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a24.gpio_46: NRST */
+			OMAP4_IOPAD(0x0be, PIN_OUTPUT | MUX_MODE3)		/* cam_strobe.gpio_82: CLK_EN */
+		>;
+	};
+
+	iss_csi21_pins: pinmux_iss_csi21_pins {
+		pinctrl-single,pins = <
+			OMAP4_IOPAD(0x0a0, PIN_INPUT | MUX_MODE0)		/* csi21_dx0.csi21_dx0 */
+			OMAP4_IOPAD(0x0a2, PIN_INPUT | MUX_MODE0)		/* csi21_dy0.csi21_dy0 */
+			OMAP4_IOPAD(0x0a4, PIN_INPUT | MUX_MODE0)		/* csi21_dx1.csi21_dx1 */
+			OMAP4_IOPAD(0x0a6, PIN_INPUT | MUX_MODE0)		/* csi21_dy1.csi21_dy1 */
+			OMAP4_IOPAD(0x0a8, PIN_INPUT | MUX_MODE0)		/* csi21_dx2.csi21_dx2 */
+			OMAP4_IOPAD(0x0aa, PIN_INPUT | MUX_MODE0)		/* csi21_dy2.csi21_dy2 */
+		>;
+	};
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+
+	clock-frequency = <400000>;
+
+
+	uart56: sc16is762@48 {
+                compatible = "nxp,sc16is762";
+                reg = <0x48>;
+                clocks = <&uart56_clk>;
+
+		interrupt-parent = <&gpio2>;
+		interrupts = <12 IRQ_TYPE_EDGE_FALLING>;	/* gpio_44 */
+
+		uart56_clocks: clocks {
+
+			uart56_osc: oscillator {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <1843200>;
+			};
+
+			uart56_clk: clock {
+				compatible = "gpio-gate-clock";
+				clocks = <&uart56_osc>;
+				#clock-cells = <0>;
+				enable-gpios = <&gpio3 17 GPIO_ACTIVE_HIGH>;
+			};
+		};
+	};
+
+	pca9632_1: pca9632@10 {
+		compatible = "nxp,pca9635";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x10>;
+
+		ledring1_red@0 {
+			label = "led_ring[1]:red";
+			reg = <0>;
+			linux,default-trigger = "none";
+		};
+		ledring1_green@1 {
+			label = "led_ring[1]:green";
+			reg = <1>;
+			linux,default-trigger = "none";
+		};
+		ledring1_blue@2 {
+			label = "led_ring[1]:blue";
+			reg = <2>;
+			linux,default-trigger = "none";
+		};
+		ledring2_red@4 {
+			label = "led_ring[2]:red";
+			reg = <4>;
+			linux,default-trigger = "none";
+		};
+		ledring2_green@5 {
+			label = "led_ring[2]:green";
+			reg = <5>;
+			linux,default-trigger = "none";
+		};
+		ledring2_blue@6 {
+			label = "led_ring[2]:blue";
+			reg = <6>;
+			linux,default-trigger = "none";
+		};
+		ledring3_red@8 {
+			label = "led_ring[3]:red";
+			reg = <8>;
+			linux,default-trigger = "none";
+		};
+		ledring3_green@9 {
+			label = "led_ring[3]:green";
+			reg = <9>;
+			linux,default-trigger = "none";
+		};
+		ledring3_blue@10 {
+			label = "led_ring[3]:blue";
+			reg = <10>;
+			linux,default-trigger = "none";
+		};
+		ledring4_red@12 {
+			label = "led_ring[4]:red";
+			reg = <12>;
+			linux,default-trigger = "none";
+		};
+		ledring4_green@13 {
+			label = "led_ring[4]:green";
+			reg = <13>;
+			linux,default-trigger = "none";
+		};
+		ledring4_blue@14 {
+			label = "led_ring[4]:blue";
+			reg = <14>;
+			linux,default-trigger = "none";
+		};
+		unused0@3 {
+			reg = <3>;
+			linux,default-trigger = "none";
+		};
+		unused1@7 {
+			reg = <7>;
+			linux,default-trigger = "none";
+		};
+		unused2@11 {
+			reg = <11>;
+			linux,default-trigger = "none";
+		};
+		unused3@15 {
+			reg = <15>;
+			linux,default-trigger = "none";
+		};
+	};
+
+	pca9632_2: pca9632@11 {
+		compatible = "nxp,pca9635";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x11>;
+
+		ledring5_red@0 {
+			label = "led_ring[5]:red";
+			reg = <0>;
+			linux,default-trigger = "none";
+		};
+		ledring5_green@1 {
+			label = "led_ring[5]:green";
+			reg = <1>;
+			linux,default-trigger = "none";
+		};
+		ledring5_blue@2 {
+			label = "led_ring[5]:blue";
+			reg = <2>;
+			linux,default-trigger = "none";
+		};
+		ledring6_red@4 {
+			label = "led_ring[6]:red";
+			reg = <4>;
+			linux,default-trigger = "none";
+		};
+		ledring6_green@5 {
+			label = "led_ring[6]:green";
+			reg = <5>;
+			linux,default-trigger = "none";
+		};
+		ledring6_blue@6 {
+			label = "led_ring[6]:blue";
+			reg = <6>;
+			linux,default-trigger = "none";
+		};
+		ledring7_red@8 {
+			label = "led_ring[7]:red";
+			reg = <8>;
+			linux,default-trigger = "none";
+		};
+		ledring7_green@9 {
+			label = "led_ring[7]:green";
+			reg = <9>;
+			linux,default-trigger = "none";
+		};
+		ledring7_blue@10 {
+			label = "led_ring[7]:blue";
+			reg = <10>;
+			linux,default-trigger = "none";
+		};
+		ledring8_red@12 {
+			label = "led_ring[8]:red";
+			reg = <12>;
+			linux,default-trigger = "none";
+		};
+		ledring8_green@13 {
+			label = "led_ring[8]:green";
+			reg = <13>;
+			linux,default-trigger = "none";
+		};
+		ledring8_blue@14 {
+			label = "led_ring[8]:blue";
+			reg = <14>;
+			linux,default-trigger = "none";
+		};
+		unused4@3 {
+			reg = <3>;
+			linux,default-trigger = "none";
+		};
+		unused5@7 {
+			reg = <7>;
+			linux,default-trigger = "none";
+		};
+		unused6@11 {
+			reg = <11>;
+			linux,default-trigger = "none";
+		};
+		unused7@15 {
+			reg = <15>;
+			linux,default-trigger = "none";
+		};
+	};
+
+	pca9632_3: pca9632@12 {
+		compatible = "nxp,pca9635";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x12>;
+
+		ledring9_red@0 {
+			label = "led_ring[9]:red";
+			reg = <0>;
+			linux,default-trigger = "none";
+		};
+		ledring9_green@1 {
+			label = "led_ring[9]:green";
+			reg = <1>;
+			linux,default-trigger = "none";
+		};
+		ledring9_blue@2 {
+			label = "led_ring[9]:blue";
+			reg = <2>;
+			linux,default-trigger = "none";
+		};
+		ledring10_red@4 {
+			label = "led_ring[10]:red";
+			reg = <4>;
+			linux,default-trigger = "none";
+		};
+		ledring10_green@5 {
+			label = "led_ring[10]:green";
+			reg = <5>;
+			linux,default-trigger = "none";
+		};
+		ledring10_blue@6 {
+			label = "led_ring[10]:blue";
+			reg = <6>;
+			linux,default-trigger = "none";
+		};
+		ledring11_red@8 {
+			label = "led_ring[11]:red";
+			reg = <8>;
+			linux,default-trigger = "none";
+		};
+		ledring11_green@9 {
+			label = "led_ring[11]:green";
+			reg = <9>;
+			linux,default-trigger = "none";
+		};
+		ledring11_blue@10 {
+			label = "led_ring[11]:blue";
+			reg = <10>;
+			linux,default-trigger = "none";
+		};
+		ledring12_red@12 {
+			label = "led_ring[12]:red";
+			reg = <12>;
+			linux,default-trigger = "none";
+		};
+		ledring12_green@13 {
+			label = "led_ring[12]:green";
+			reg = <13>;
+			linux,default-trigger = "none";
+		};
+		ledring12_blue@14 {
+			label = "led_ring[12]:blue";
+			reg = <14>;
+			linux,default-trigger = "none";
+		};
+		unused8@3 {
+			reg = <3>;
+			linux,default-trigger = "none";
+		};
+		unused9@7 {
+			reg = <7>;
+			linux,default-trigger = "none";
+		};
+		unused10@11 {
+			reg = <11>;
+			linux,default-trigger = "none";
+		};
+		unused11@15 {
+			reg = <15>;
+			linux,default-trigger = "none";
+		};
+	};
+};
+/*
+&i2c3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pins>;
+	status = "ok";
+
+	clock-frequency = <100000>;
+
+	ov5640: camera@3c {
+		compatible = "omnivision,ov5640";
+		status = "ok";
+		reg = <0x3c>;
+
+		pwdn-gpios = <&gpio3 18 GPIO_ACTIVE_HIGH>;	// gpio_82 - power down
+		reset-gpios = <&gpio3 19 GPIO_ACTIVE_LOW>;	// gpio_83 - reset
+
+		clocks = <&auxclk1_ck>;
+		
+		port {
+			ov5640_1: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1>;
+				remote-endpoint = <&csi21>;
+			};
+		};
+	};
+};
+*/
+&mmc3 {
+	status = "disabled";
+};
+
+&iss {
+	status = "ok";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&iss_csi21_pins>;
+};
+
