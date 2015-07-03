@@ -66,12 +66,11 @@ IMAGE_INSTALL += " \
   ${FIRMWARE_INSTALL} \
   ${SYSTEM_TOOLS_INSTALL} \
   ${DEV_TOOLS_INSTALL} \
+  ${HAL_TOOLS_INSTALL} \
   ${NETWORK_TOOLS_INSTALL} \
   ${MEDIA_TOOLS_INSTALL} \
   ${UTILITIES_INSTALL} \
 "
-
-#  ${HAL_TOOLS_INSTALL}
 
 # Create a generic 'gumstix' user account, part of the gumstix group,
 # using '/bin/sh' and with a home directory '/home/gumstix' (see
