@@ -18,6 +18,10 @@
 
 #include "rf.h"
 
+#define MID_REG_RF_ENABLE 0x3e
+#define MID_REG_RF_OFFSET 0x40
+#define MID_REG_RF_BRIGHTNESS 0x20
+
 struct bebot_chassis_rfs_devtype {
 	int nr_rfs;
 };
@@ -63,7 +67,7 @@ static int bebot_chassis_rfs_probe(struct i2c_client *client,
 	struct device_node *np = client->dev.of_node, *child;
 	struct bebot_chassis_rfs *bc_rfs;
 	struct bebot_rf *rfs;
-	int res, i;
+	int res = 0, i;
 
 	if(!client->dev.of_node) {
 		dev_err(&client->dev, "could not find device tree node\n");
@@ -95,18 +99,51 @@ static int bebot_chassis_rfs_probe(struct i2c_client *client,
 			continue;
 
 		rfs[reg].rf_cdev.name = of_get_property(child, "label", NULL) ? : child->name;
-	 	res = rf_classdev_register(&client->dev, &rfs[reg].rf_cdev);
+		dev_info(&client->dev, "RF %s at %d from DT\n", rfs[reg].rf_cdev.name, reg);
+	 	//res = rf_classdev_register(&client->dev, &rfs[reg].rf_cdev);
 		if(res != 0) {
 			goto exit;
 		} else {
 			rfs[reg].registered = true;
 		}
 	}
+	/**********************************/
+	if(false) {
+		int k;
+		i2c_smbus_write_word_data(client, MID_REG_RF_ENABLE, 0xffff);
+		for(k = 0; k <  10; k++) {
+			int n, it, jt, length = 24;
+			u8 buffer[24];
+			/* // not implemented
+			n = i2c_smbus_read_i2c_block_data(client, MID_REG_RF_OFFSET, length, buffer);
+			if(n != length) {
+				dev_info(&client->dev, "Bad length @ OFFSET: %d != %d\n", n, length);
+			}
+			for (it = 0, jt = 0; it < length; it += 2, jt++) {
+				u16 temp = (buffer[it + 1] << 8) | buffer[it];
+				dev_info(&client->dev, "sensor[%d].offset = %u\n", jt, le16_to_cpu(temp));
+			}
+			*/
+
+			n = i2c_smbus_read_i2c_block_data(client, MID_REG_RF_BRIGHTNESS, length, buffer);
+			if(n != length) {
+				dev_info(&client->dev, "Bad length @ BRIGHTNESS: %d != %d\n", n, length);
+			}
+			for (it = 0, jt = 0; it < length; it += 2, jt++) {
+				u16 temp = (buffer[it + 1] << 8) | buffer[it];
+				dev_info(&client->dev, "sensor[%d].brightness = %u\n", jt, le16_to_cpu(temp));
+			}
+			msleep(500);
+		}
+		
+	}
+	/*********************************/
 	return 0;
 exit:
 	for (i = 0; i < devtype->nr_rfs; i++) {
-		if(rfs[i].registered)
-			rf_classdev_unregister(&rfs[i].rf_cdev);
+		if(rfs[i].registered) {
+			//rf_classdev_unregister(&rfs[i].rf_cdev);
+		}
 	}
 
 	return res;

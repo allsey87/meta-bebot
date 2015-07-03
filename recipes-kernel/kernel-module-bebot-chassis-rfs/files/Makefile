@@ -1,5 +1,4 @@
 obj-m := bebot-chassis-rfs.o
-bebotrf-y := rf-class.o rf-core.o
 
 SRC := $(shell pwd)
 
