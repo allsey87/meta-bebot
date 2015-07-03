@@ -1,7 +1,7 @@
-From 2c3cc1c66815175b1615a9d2f8571769da0aaa2c Mon Sep 17 00:00:00 2001
+From 14c0715432d348805540fc4649485ee51492a419 Mon Sep 17 00:00:00 2001
 From: Michael Allwright <allsey87@gmail.com>
-Date: Thu, 18 Jun 2015 14:03:45 +0200
-Subject: [PATCH] BeBot: Add Support
+Date: Fri, 19 Jun 2015 11:30:03 +0200
+Subject: [PATCH] Add BeBot Support
 
 ---
  arch/arm/cpu/armv7/omap4/Kconfig  |   4 +
@@ -11,9 +11,9 @@ Subject: [PATCH] BeBot: Add Support
  board/bebot/bebot.c               | 267 ++++++++++++++++++++++++++++++++++++++
  board/bebot/bebot_mux_data.h      | 202 ++++++++++++++++++++++++++++
  configs/bebot_defconfig           |   4 +
- include/configs/bebot.h           |  63 +++++++++
+ include/configs/bebot.h           |  62 +++++++++
  include/configs/ti_omap4_common.h |   2 +
- 9 files changed, 565 insertions(+)
+ 9 files changed, 564 insertions(+)
  create mode 100644 board/bebot/Kconfig
  create mode 100644 board/bebot/MAINTAINERS
  create mode 100644 board/bebot/Makefile
@@ -23,7 +23,7 @@ Subject: [PATCH] BeBot: Add Support
  create mode 100644 include/configs/bebot.h
 
 diff --git a/arch/arm/cpu/armv7/omap4/Kconfig b/arch/arm/cpu/armv7/omap4/Kconfig
-index e270895..9a7ab7b 100644
+index eccf897..fa4e90b 100644
 --- a/arch/arm/cpu/armv7/omap4/Kconfig
 +++ b/arch/arm/cpu/armv7/omap4/Kconfig
 @@ -6,6 +6,9 @@ choice
@@ -31,12 +31,12 @@ index e270895..9a7ab7b 100644
  	bool "OMAP4430 Gumstix Duovero"
  
 +config TARGET_BEBOT
-+	bool "OMAP4430 Duovero BeBot"
++	bool "OMAP4430 Duovero Bebot"
 +
  config TARGET_OMAP4_PANDA
  	bool "TI OMAP4 PandaBoard"
  
-@@ -20,6 +23,7 @@ config SYS_CPU
+@@ -17,6 +20,7 @@ endchoice
  config SYS_SOC
  	default "omap4"
  
@@ -61,14 +61,14 @@ index 0000000..3e11836
 +endif
 diff --git a/board/bebot/MAINTAINERS b/board/bebot/MAINTAINERS
 new file mode 100644
-index 0000000..9b94d33
+index 0000000..e22a58c
 --- /dev/null
 +++ b/board/bebot/MAINTAINERS
 @@ -0,0 +1,6 @@
 +BEBOT BOARD
 +M:	Michael Allwright <allsey87@gmail.com>
 +S:	Maintained
-+F:	board/gumstix/bebot/
++F:	board/bebot/
 +F:	include/configs/bebot.h
 +F:	configs/bebot_defconfig
 diff --git a/board/bebot/Makefile b/board/bebot/Makefile
@@ -87,7 +87,7 @@ index 0000000..f9e6dac
 +obj-y	:= bebot.o
 diff --git a/board/bebot/bebot.c b/board/bebot/bebot.c
 new file mode 100644
-index 0000000..ab9dd16
+index 0000000..7333f6c
 --- /dev/null
 +++ b/board/bebot/bebot.c
 @@ -0,0 +1,267 @@
@@ -96,7 +96,7 @@ index 0000000..ab9dd16
 + * University of Paderborn - http://www.upb.de
 + * Maintainer: Michael Allwright <allsey87@gmail.com>
 + *
-+ * Configuration for the bebot, based on the Gumstix 
++ * Configuration for the DuoVero BeBot, based on the Gumstix
 + * DuoVero board maintained by Ash Charles <ash@gumstix.com>.
 + *
 + * SPDX-License-Identifier:     GPL-2.0+
@@ -360,7 +360,7 @@ index 0000000..ab9dd16
 +}
 diff --git a/board/bebot/bebot_mux_data.h b/board/bebot/bebot_mux_data.h
 new file mode 100644
-index 0000000..79a3264
+index 0000000..dd70936
 --- /dev/null
 +++ b/board/bebot/bebot_mux_data.h
 @@ -0,0 +1,202 @@
@@ -369,7 +369,7 @@ index 0000000..79a3264
 + * University of Paderborn - http://www.upb.de
 + * Maintainer: Michael Allwright <allsey87@gmail.com>
 + *
-+ * Configuration for the bebot, based on the Gumstix 
++ * Configuration for the DuoVero BeBot, based on the Gumstix
 + * DuoVero board maintained by Ash Charles <ash@gumstix.com>.
 + *
 + * SPDX-License-Identifier:     GPL-2.0+
@@ -568,28 +568,27 @@ index 0000000..79a3264
 +#endif /* _BEBOT_MUX_DATA_H_ */
 diff --git a/configs/bebot_defconfig b/configs/bebot_defconfig
 new file mode 100644
-index 0000000..3118ce1
+index 0000000..7af73bb
 --- /dev/null
 +++ b/configs/bebot_defconfig
 @@ -0,0 +1,4 @@
 +CONFIG_SPL=y
-++S:CONFIG_ARM=y
-++S:CONFIG_OMAP44XX=y
-++S:CONFIG_TARGET_BEBOT=y
++CONFIG_ARM=y
++CONFIG_OMAP44XX=y
++CONFIG_TARGET_BEBOT=y
 diff --git a/include/configs/bebot.h b/include/configs/bebot.h
 new file mode 100644
-index 0000000..39c0d79
+index 0000000..f7055b8
 --- /dev/null
 +++ b/include/configs/bebot.h
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,62 @@
 +/*
 + * (C) Copyright: 2015
 + * University of Paderborn - http://www.upb.de
-+ * Maintainer: Michael Allwright  <allsey87@gmail.com>
++ * Maintainer: Michael Allwright <allsey87@gmail.com>
 + *
-+ * Configuration settings for the bebot, based on the Gumstix 
-+ * DuoVero board maintained by Ash Charles  <ash@gumstix.com>.
-+ * See omap4_common.h for OMAP4 common part
++ * Configuration for the DuoVero BeBot, based on the Gumstix
++ * DuoVero board maintained by Ash Charles <ash@gumstix.com>.
 + *
 + * SPDX-License-Identifier:     GPL-2.0+
 + */
@@ -613,7 +612,7 @@ index 0000000..39c0d79
 +#define CONFIG_SYS_DEFAULT_LPDDR2_TIMINGS
 +
 +#undef CONFIG_SYS_PROMPT
-+#define CONFIG_SYS_PROMPT		"bebot # "
++#define CONFIG_SYS_PROMPT		"bebot> "
 +
 +/* USB UHH support options */
 +#define CONFIG_CMD_USB
@@ -646,7 +645,7 @@ index 0000000..39c0d79
 +
 +#endif /* __CONFIG_BEBOT_H */
 diff --git a/include/configs/ti_omap4_common.h b/include/configs/ti_omap4_common.h
-index b0f199e..e1bff97 100644
+index 1c93aab..20010e5 100644
 --- a/include/configs/ti_omap4_common.h
 +++ b/include/configs/ti_omap4_common.h
 @@ -126,6 +126,8 @@
