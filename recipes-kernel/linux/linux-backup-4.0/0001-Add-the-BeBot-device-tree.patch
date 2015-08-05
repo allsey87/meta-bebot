@@ -1,0 +1,355 @@
+From c8f4fccb1e300bb5a3c7076f6545e8b93a10ec41 Mon Sep 17 00:00:00 2001
+From: Michael Allwright <allsey87@gmail.com>
+Date: Mon, 29 Jun 2015 16:09:05 +0200
+Subject: [PATCH 1/2] Add the BeBot device tree
+
+---
+ arch/arm/boot/dts/omap4-duovero-bebot.dts | 336 ++++++++++++++++++++++++++++++
+ 1 file changed, 336 insertions(+)
+ create mode 100644 arch/arm/boot/dts/omap4-duovero-bebot.dts
+
+diff --git a/arch/arm/boot/dts/omap4-duovero-bebot.dts b/arch/arm/boot/dts/omap4-duovero-bebot.dts
+new file mode 100644
+index 0000000..77e2f35
+--- /dev/null
++++ b/arch/arm/boot/dts/omap4-duovero-bebot.dts
+@@ -0,0 +1,336 @@
++/*
++ * Copyright (C) 2014 Florian Vaussard, EPFL Mobots group
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++/dts-v1/;
++
++#include "omap4-duovero.dtsi"
++
++#include <dt-bindings/input/input.h>
++
++/ {
++	model = "BeBot Minature Robot powered by Gumstix Duovero";
++	compatible = "upb,omap4-duovero-bebot", "gumstix,omap4-duovero", "ti,omap4430", "ti,omap4";
++
++	ocp {
++		iss: iss@52000000 {
++			compatible = "ti,omap4-iss";
++			reg = <0x52000000 0x100>, /* top */
++			      <0x52001000 0x170>, /* csi2_a_regs1 */
++			      <0x52001170 0x020>, /* camerarx_core1 */
++			      <0x52001400 0x170>, /* csi2_b_regs1 */
++			      <0x52001570 0x020>, /* camerarx_core2 */
++			      <0x52002000 0x200>, /* bte */
++			      <0x52010000 0x0a0>, /* isp_sys1 */
++			      <0x52010400 0x400>, /* isp_resizer */
++			      <0x52010800 0x800>, /* isp_ipipe */
++			      <0x52011000 0x200>, /* isp_isif */
++			      <0x52011200 0x080>; /* isp_ipipeif */
++			reg-names = "top",
++			            "csi2_a_regs1",
++			            "camerarx_core1",
++			            "csi2_b_regs1",
++			            "camerarx_core2",
++			            "bte",
++			            "isp_sys1",
++			            "isp_resizer",
++			            "isp_ipipe",
++			            "isp_isif",
++			            "isp_ipipeif";
++			status = "ok";
++			ti,hwmods = "iss";
++			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
++			//clocks = <&ducati_clk_mux_ck>, <&iss_ctrlclk>;
++			//clock-names = "fck", "iss_ctrlclk";
++			dmas = <&sdma 9>, <&sdma 10>, <&sdma 12>, <&sdma 13>;
++			dma-names = "1", "2", "3", "4";
++
++		        csi21: csi2 {
++				endpoint {
++					channel = "0";
++					clock-lanes = <0>;
++					data-lanes = <1>;
++					//remote-endpoint = <&ov5640_1>;
++				};
++			};
++		};
++	};
++
++	regulator_vdd18_mmc3: regulator_vdd18_mmc3 {
++		compatible = "regulator-fixed";
++		regulator-name = "vdd18-mmc3";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		regulator-always-on;
++	};
++};
++
++&omap4_pmx_core {
++	pinctrl-0 = <
++			&uart56ctrl_pins
++			&uart78ctrl_pins
++			&xbeectrl_pins
++	>;
++	
++	i2c2_pins: pinmux_i2c2_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x126, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c2_scl */
++			OMAP4_IOPAD(0x128, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c2_sda */
++		>;
++	};
++
++	i2c3_pins: pinmux_i2c3_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x12a, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c3_scl */
++			OMAP4_IOPAD(0x12c, PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c3_sda */
++		>;
++	};
++
++	uart56ctrl_pins: pinmux_uart56ctrl_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x068, PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a20.gpio_44: uart56_irq */
++			OMAP4_IOPAD(0x06a, PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a21.gpio_45: uart56_nrst */
++			OMAP4_IOPAD(0x0bc, PIN_OUTPUT | MUX_MODE3)		/* cam_shutter.gpio_81: uart56_clk_en */
++		>;
++	};
++
++	uart78ctrl_pins: pinmux_uart78ctrl_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x070, PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a24.gpio_48: uart78_irq */
++			OMAP4_IOPAD(0x06c, PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a24.gpio_46: uart78_nrst */
++			OMAP4_IOPAD(0x0be, PIN_OUTPUT | MUX_MODE3)		/* cam_strobe.gpio_82: uart78_clk_en */
++		>;
++	};
++
++	xbeectrl_pins: pinmux_xbeectrl_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x0c0, PIN_OUTPUT | MUX_MODE3)		/* cam_reset.gpio_83: xbee_en */
++		>;
++	};
++
++	mmc3_pins: pinmux_mmc3_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x114, PIN_INPUT_PULLUP | MUX_MODE3)	/* abe_dmic_din2.gpio_121: sdmmc3_wp */
++			OMAP4_IOPAD(0x116, PIN_INPUT_PULLUP | MUX_MODE3)	/* abe_dmic_din3.gpio_122: sdmmc3_cd */
++			OMAP4_IOPAD(0x118, PIN_INPUT_PULLUP | MUX_MODE1)	/* sdmmc3_clk.gpio_123: sdmmc3_clk */
++			OMAP4_IOPAD(0x11a, PIN_INPUT_PULLUP | MUX_MODE1)	/* sdmcc3_cmd.gpio_124: sdmcc3_cmd */
++			OMAP4_IOPAD(0x11c, PIN_INPUT_PULLUP | MUX_MODE1)	/* sdmcc3_dat0.gpio_125: sdmcc3_dat0 */
++			OMAP4_IOPAD(0x11e, PIN_INPUT_PULLUP | MUX_MODE1)	/* sdmcc3_dat1.gpio_126: sdmcc3_dat1 */
++		>;
++	};
++
++
++	iss_csi21_pins: pinmux_iss_csi21_pins {
++		pinctrl-single,pins = <
++			OMAP4_IOPAD(0x0a0, PIN_INPUT | MUX_MODE0)		/* csi21_dx0.csi21_dx0 */
++			OMAP4_IOPAD(0x0a2, PIN_INPUT | MUX_MODE0)		/* csi21_dy0.csi21_dy0 */
++			OMAP4_IOPAD(0x0a4, PIN_INPUT | MUX_MODE0)		/* csi21_dx1.csi21_dx1 */
++			OMAP4_IOPAD(0x0a6, PIN_INPUT | MUX_MODE0)		/* csi21_dy1.csi21_dy1 */
++			OMAP4_IOPAD(0x0a8, PIN_INPUT | MUX_MODE0)		/* csi21_dx2.csi21_dx2 */
++			OMAP4_IOPAD(0x0aa, PIN_INPUT | MUX_MODE0)		/* csi21_dy2.csi21_dy2 */
++		>;
++	};
++};
++
++&i2c2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c2_pins>;
++
++	clock-frequency = <400000>;
++
++	uart56: sc16is762@48 {
++                compatible = "nxp,sc16is762";
++                reg = <0x48>;
++                clocks = <&uart56_clk>;
++
++		interrupt-parent = <&gpio2>;
++		interrupts = <12 IRQ_TYPE_EDGE_FALLING>; /* gpmc_a20.gpio_44 */
++
++		uart56_osc: uart56_osc {
++			compatible = "fixed-clock";
++			#clock-cells = <0>;
++			clock-frequency = <1843200>;
++		};
++
++		uart56_clk: uart56_clk {
++			compatible = "gpio-gate-clock";
++			clocks = <&uart56_osc>;
++			#clock-cells = <0>;
++			enable-gpios = <&gpio3 17 GPIO_ACTIVE_HIGH>; /* cam_shutter.gpio_81: uart56_clk_en */
++		};
++	};
++
++	uart78: sc16is762@49 {
++                compatible = "nxp,sc16is762";
++                reg = <0x49>;
++                clocks = <&uart78_clk>;
++
++		interrupt-parent = <&gpio2>;
++		interrupts = <16 IRQ_TYPE_EDGE_FALLING>; /* gpmc_a24.gpio_48 */
++
++		uart78_osc: uart78_osc {
++			compatible = "fixed-clock";
++			#clock-cells = <0>;
++			clock-frequency = <1843200>;
++		};
++
++		uart78_clk: uart78_clk {
++			compatible = "gpio-gate-clock";
++			clocks = <&uart78_osc>;
++			#clock-cells = <0>;
++			enable-gpios = <&gpio3 18 GPIO_ACTIVE_HIGH>; /* cam_strobe.gpio_82: uart78_clk_en */
++		};
++	};
++
++	pca9632_1: pca9632@10 {
++		compatible = "nxp,pca9635";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0x10>;
++
++		leddeck1_red@0    { label = "led_deck[1]:red";   reg = <0>; };
++		leddeck1_green@1  { label = "led_deck[1]:green"; reg = <1>; };
++		leddeck1_blue@2   { label = "led_deck[1]:blue";  reg = <2>; };
++		leddeck2_red@4    { label = "led_deck[2]:red";   reg = <4>; };
++		leddeck2_green@5  { label = "led_deck[2]:green"; reg = <5>; };
++		leddeck2_blue@6   { label = "led_deck[2]:blue";  reg = <6>; };
++		leddeck3_red@8    { label = "led_deck[3]:red";   reg = <8>; };
++		leddeck3_green@9  { label = "led_deck[3]:green"; reg = <9>; };
++		leddeck3_blue@10  { label = "led_deck[3]:blue";  reg = <10>; };
++		leddeck4_red@12   { label = "led_deck[4]:red";   reg = <12>; };
++		leddeck4_green@13 { label = "led_deck[4]:green"; reg = <13>; };
++		leddeck4_blue@14  { label = "led_deck[4]:blue";  reg = <14>; };
++		unused0@3  { reg = <3>; };
++		unused1@7  { reg = <7>; };
++		unused2@11 { reg = <11>; };
++		unused3@15 { reg = <15>; };
++	};
++
++	pca9632_2: pca9632@11 {
++		compatible = "nxp,pca9635";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0x11>;
++
++		leddeck5_red@0    { label = "led_deck[5]:red";   reg = <0>; };
++		leddeck5_green@1  { label = "led_deck[5]:green"; reg = <1>; };
++		leddeck5_blue@2   { label = "led_deck[5]:blue";  reg = <2>; };
++		leddeck6_red@4    { label = "led_deck[6]:red";   reg = <4>; };
++		leddeck6_green@5  { label = "led_deck[6]:green"; reg = <5>; };
++		leddeck6_blue@6   { label = "led_deck[6]:blue";  reg = <6>; };
++		leddeck7_red@8    { label = "led_deck[7]:red";   reg = <8>; };
++		leddeck7_green@9  { label = "led_deck[7]:green"; reg = <9>; };
++		leddeck7_blue@10  { label = "led_deck[7]:blue";  reg = <10>; };
++		leddeck8_red@12   { label = "led_deck[8]:red";   reg = <12>; };
++		leddeck8_green@13 { label = "led_deck[8]:green"; reg = <13>; };
++		leddeck8_blue@14  { label = "led_deck[8]:blue";  reg = <14>; };
++		unused4@3  { reg = <3>; };
++		unused5@7  { reg = <7>; };
++		unused6@11 { reg = <11>; };
++		unused7@15 { reg = <15>; };
++	};
++
++	pca9632_3: pca9632@12 {
++		compatible = "nxp,pca9635";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0x12>;
++
++		leddeck9_red@0     { label = "led_deck[9]:red";    reg = <0>; };
++		leddeck9_green@1   { label = "led_deck[9]:green";  reg = <1>; };
++		leddeck9_blue@2    { label = "led_deck[9]:blue";   reg = <2>; };
++		leddeck10_red@4    { label = "led_deck[10]:red";   reg = <4>; };
++		leddeck10_green@5  { label = "led_deck[10]:green"; reg = <5>; };
++		leddeck10_blue@6   { label = "led_deck[10]:blue";  reg = <6>; };
++		leddeck11_red@8    { label = "led_deck[11]:red";   reg = <8>; };
++		leddeck11_green@9  { label = "led_deck[11]:green"; reg = <9>; };
++		leddeck11_blue@10  { label = "led_deck[11]:blue";  reg = <10>; };
++		leddeck12_red@12   { label = "led_deck[12]:red";   reg = <12>; };
++		leddeck12_green@13 { label = "led_deck[12]:green"; reg = <13>; };
++		leddeck12_blue@14  { label = "led_deck[12]:blue";  reg = <14>; };
++		unused8@3   { reg = <3>; };
++		unused9@7   { reg = <7>; };
++		unused10@11 { reg = <11>; };
++		unused11@15 { reg = <15>; };
++	};
++
++	pca9633: pca9633@60 {
++		compatible = "nxp,pca9633";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0x60>;
++
++		green@0 {
++			reg = <0>;
++			label = "xbee_rxtx";
++			linux,default-trigger = "none";
++		};
++		green@1 {
++			reg = <1>;
++			label = "wlan_rxtx";
++			linux,default-trigger = "none";
++		};
++		green@2 {
++			reg = <2>;
++			label = "dev_rxtx";
++			linux,default-trigger = "none";
++		};
++		green@3 {
++			reg = <3>;
++			label = "mmc_rxtx";
++			linux,default-trigger = "none";
++		};
++	};
++};
++/*
++&i2c3 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c3_pins>;
++	status = "ok";
++
++	clock-frequency = <100000>;
++
++	ov5640: camera@3c {
++		compatible = "omnivision,ov5640";
++		status = "ok";
++		reg = <0x3c>;
++
++		pwdn-gpios = <&gpio3 18 GPIO_ACTIVE_HIGH>;	// gpio_82 - power down
++		reset-gpios = <&gpio3 19 GPIO_ACTIVE_LOW>;	// gpio_83 - reset
++
++		clocks = <&auxclk1_ck>;
++		
++		port {
++			ov5640_1: endpoint {
++				clock-lanes = <0>;
++				data-lanes = <1>;
++				remote-endpoint = <&csi21>;
++			};
++		};
++	};
++};
++*/
++
++&mmc3 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&mmc3_pins>;
++
++	ti,bus-width = <1>;
++	vmmc-supply = <&regulator_vdd18_mmc3>;
++
++	wp-gpios = <&gpio4 25 GPIO_ACTIVE_HIGH>;	/* gpio_121 */
++	cd-gpios = <&gpio4 26 GPIO_ACTIVE_HIGH>;	/* gpio_122 */
++	cd-inverted;
++	wp-inverted;
++};
++
++&iss {
++	status = "ok";
++
++	pinctrl-names = "default";
++	pinctrl-0 = <&iss_csi21_pins>;
++};
++
+-- 
+1.9.1
+

@@ -1,7 +1,8 @@
 DESCRIPTION = "A basic console image for Gumstix boards."
+HOMEPAGE = "http://github.com/allsey87/meta-bebot/"
 LICENSE = "MIT"
 
-IMAGE_FEATURES += "splash package-management ssh-server-openssh"
+IMAGE_FEATURES += "package-management ssh-server-openssh"
 # Uncomment below to include dev tools and packages
 # IMAGE_FEATURES += "tools-sdk dev-pkgs"
 
@@ -18,7 +19,6 @@ FIRMWARE_INSTALL = " \
 "
 
 SYSTEM_TOOLS_INSTALL = " \
-  alsa-utils \
   cpufrequtils \
   tzdata \
   i2c-tools \
