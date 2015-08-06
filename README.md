@@ -4,12 +4,12 @@ Yocto layer containing patches and configuration for the BeBot minature mobile r
 
 ## Instructions
 
-1. Clone the yocto project and checkout dizzy (the latest revision at the time of writing)
+1. Clone the yocto project and checkout fido (the latest revision at the time of writing)
 
    ```bash
 git clone http://git.yoctoproject.org/git/poky
 cd poky
-git checkout -b dizzy origin/dizzy
+git checkout -b fido origin/fido
 ```
 2. Checkout the bebot layer into the poky directory
 
@@ -33,3 +33,5 @@ bitbake bebot-console-image
 ```
 
 The build process takes at least an hour on a fast machine. The files for the image after the build can be found under tmp/deploy/images/overo. Instructions on how to prepare an SD card can be found here: [Create a bootable micro-SD card](http://www.gumstix.org/create-a-bootable-microsd-card.html)
+
+
