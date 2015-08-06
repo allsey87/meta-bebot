@@ -1,4 +1,4 @@
-The included meta-bebot layer makes the bebot machines available. 
+The included meta-bebot layer makes the bebot machine available. 
 
 To (re-)build just the bootloader or kernel, use these commands:
 

@@ -16,7 +16,7 @@ index 1c93aab..62e0464 100644
  	DEFAULT_LINUX_BOOT_ENV \
  	"console=ttyO2,115200n8\0" \
 -	"fdtfile=undefined\0" \
-+	"fdtfile=omap4-duovero-parlor.dtb\0" \
++	"fdtfile=omap4-duovero-bebot.dtb\0" \
  	"bootpart=0:2\0" \
  	"bootdir=/boot\0" \
  	"bootfile=zImage\0" \

@@ -4,7 +4,7 @@ KERNEL_IMAGETYPE = "zImage"
 
 COMPATIBLE_MACHINE = "bebot"
 
-RDEPENDS_kernel_base += "kernel-devicetree"
+RDEPENDS_kernel-base += "kernel-devicetree"
 
 KERNEL_DEVICETREE_bebot = "omap4-duovero-bebot.dtb"
 

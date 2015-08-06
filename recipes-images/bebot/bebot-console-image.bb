@@ -1,4 +1,4 @@
-DESCRIPTION = "A basic console image for Gumstix boards."
+DESCRIPTION = "A basic console image for the DuoVero based BeBot."
 HOMEPAGE = "http://github.com/allsey87/meta-bebot/"
 LICENSE = "MIT"
 
@@ -9,14 +9,6 @@ IMAGE_FEATURES += "package-management ssh-server-openssh"
 IMAGE_LINGUAS = "en-us"
 
 inherit core-image
-
-# Gumstix machines individually RDEPEND on the firware they need but we repeat
-# it here as we might want to use the same image on multiple different machines.
-FIRMWARE_INSTALL = " \
-  linux-firmware-sd8686 \
-  linux-firmware-sd8787 \
-  linux-firmware-wl18xx \
-"
 
 SYSTEM_TOOLS_INSTALL = " \
   cpufrequtils \
@@ -31,15 +23,18 @@ DEV_TOOLS_INSTALL = " \
 
 NETWORK_TOOLS_INSTALL = " \
   curl \
+  iproute2 \
   iputils \
   iw \
   ntp \
-  ti-wifi-utils \
-  uim \
 "
+
 HAL_TOOLS_INSTALL = " \
   argos3plugins \
 "
+
+# does media-ctl need to be built here?
+
 MEDIA_TOOLS_INSTALL = " \
   raw2rgbpnm \
   v4l-utils \
@@ -53,7 +48,6 @@ UTILITIES_INSTALL = " \
   findutils \
   grep \
   gzip \
-  less \
   nano \
   picocom \
   sudo \
@@ -63,10 +57,8 @@ UTILITIES_INSTALL = " \
 "
  
 IMAGE_INSTALL += " \
-  ${FIRMWARE_INSTALL} \
   ${SYSTEM_TOOLS_INSTALL} \
   ${DEV_TOOLS_INSTALL} \
-  ${HAL_TOOLS_INSTALL} \
   ${NETWORK_TOOLS_INSTALL} \
   ${MEDIA_TOOLS_INSTALL} \
   ${UTILITIES_INSTALL} \

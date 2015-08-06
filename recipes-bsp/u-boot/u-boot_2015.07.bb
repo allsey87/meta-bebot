@@ -16,7 +16,7 @@ SRC_URI = " \
     git://git.denx.de/u-boot.git;branch=master;protocol=git \
     file://0001-Load-uEnv.txt-from-boot-directory.patch \
     file://0002-Remove-boot-scr-support.patch \
-    file://0003-Added-Support-for-the-BeBot.patch
+    file://0003-Added-Support-for-the-BeBot.patch \
  "
 
 
