@@ -13,7 +13,6 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/videodev2.h>
 #include <linux/slab.h>
 #include <linux/i2c.h>
 #include <linux/log2.h>
@@ -30,9 +29,11 @@
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-ctrls.h>
 
+#include <uapi/linux/videodev2.h>
+#include <uapi/linux/v4l2-mediabus.h>
+#include <uapi/linux/media-bus-format.h>
+
 #include "ov5640.h"
-//TESTING
-#include <linux/clk-private.h>
 
 static struct ov5640_platform_data ov5640_devtype = {
 	.reg_avdd = NULL,
@@ -52,12 +53,6 @@ static const struct i2c_device_id ov5640_i2c_id_table[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, ov5640_i2c_id_table);
-
-/* OV5640 has only one fixed colorspace per pixelcode */
-struct ov5640_datafmt {
-	enum v4l2_mbus_pixelcode	code;
-	enum v4l2_colorspace		colorspace;
-};
 
 struct ov5640_timing_cfg {
 	u16 x_addr_start;
@@ -642,12 +637,12 @@ static int ov5640_config_timing(struct v4l2_subdev *sd)
 }
 
 static struct v4l2_mbus_framefmt *
-__ov5640_get_pad_format(struct ov5640 *ov5640, struct v4l2_subdev_fh *fh,
+__ov5640_get_pad_format(struct ov5640 *ov5640, struct v4l2_subdev_pad_config *cfg,
 			 unsigned int pad, enum v4l2_subdev_format_whence which)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(fh, pad);
+		return v4l2_subdev_get_try_format(&ov5640->subdev, cfg, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &ov5640->format;
 	default:
@@ -709,8 +704,6 @@ static int ov5640_s_power(struct v4l2_subdev *sd, int on)
 			goto err_clk_preen;
 		}
 
-		dev_info(dev, "XVCLK (%s) \n", ov5640->xvclk->name);
-
 		if (gpio_is_valid(ov5640->gpio_pwdn)) {
 			gpio_set_value(ov5640->gpio_pwdn,
 				       ov5640->gpio_pwdn_flags & OF_GPIO_ACTIVE_LOW ?
@@ -756,25 +749,25 @@ static struct v4l2_subdev_core_ops ov5640_subdev_core_ops = {
 };
 
 static int ov5640_g_fmt(struct v4l2_subdev *sd,
-			struct v4l2_subdev_fh *fh,
+			struct v4l2_subdev_pad_config *cfg,
 			struct v4l2_subdev_format *format)
 {
 	struct ov5640 *ov5640 = to_ov5640(sd);
 
-	format->format = *__ov5640_get_pad_format(ov5640, fh, format->pad,
+	format->format = *__ov5640_get_pad_format(ov5640, cfg, format->pad,
 						   format->which);
 
 	return 0;
 }
 
 static int ov5640_s_fmt(struct v4l2_subdev *sd,
-			struct v4l2_subdev_fh *fh,
+			struct v4l2_subdev_pad_config *cfg,
 			struct v4l2_subdev_format *format)
 {
 	struct ov5640 *ov5640 = to_ov5640(sd);
 	struct v4l2_mbus_framefmt *__format;
 
-	__format = __ov5640_get_pad_format(ov5640, fh, format->pad,
+	__format = __ov5640_get_pad_format(ov5640, cfg, format->pad,
 					    format->which);
 
 	*__format = format->format;
@@ -786,7 +779,7 @@ static int ov5640_s_fmt(struct v4l2_subdev *sd,
 }
 
 static int ov5640_enum_fmt(struct v4l2_subdev *subdev,
-			   struct v4l2_subdev_fh *fh,
+			   struct v4l2_subdev_pad_config *cfg,
 			   struct v4l2_subdev_mbus_code_enum *code)
 {
 	if (code->index >= 2)
@@ -794,22 +787,22 @@ static int ov5640_enum_fmt(struct v4l2_subdev *subdev,
 
 	switch (code->index) {
 	case 0:
-		code->code = V4L2_MBUS_FMT_UYVY8_1X16;
+		code->code = MEDIA_BUS_FMT_UYVY8_1X16;
 		break;
 	case 1:
-		code->code = V4L2_MBUS_FMT_YUYV8_1X16;
+		code->code = MEDIA_BUS_FMT_YUYV8_1X16;
 		break;
 	}
 	return 0;
 }
 
 static int ov5640_enum_framesizes(struct v4l2_subdev *subdev,
-				   struct v4l2_subdev_fh *fh,
+				   struct v4l2_subdev_pad_config *cfg,
 				   struct v4l2_subdev_frame_size_enum *fse)
 {
 	if ((fse->index >= OV5640_SIZE_LAST) ||
-	    (fse->code != V4L2_MBUS_FMT_UYVY8_1X16 &&
-	     fse->code != V4L2_MBUS_FMT_YUYV8_1X16))
+	    (fse->code != MEDIA_BUS_FMT_UYVY8_1X16 &&
+	     fse->code != MEDIA_BUS_FMT_YUYV8_1X16))
 		return -EINVAL;
 
 	fse->min_width = ov5640_frmsizes[fse->index].width;
@@ -831,11 +824,11 @@ static int ov5640_s_stream(struct v4l2_subdev *sd, int enable)
 		int i;
 
 		switch ((u32)ov5640->format.code) {
-		case V4L2_MBUS_FMT_UYVY8_1X16:
+		case MEDIA_BUS_FMT_UYVY8_1X16:
 			fmtreg = 0x32;
 			fmtmuxreg = 0;
 			break;
-		case V4L2_MBUS_FMT_YUYV8_1X16:
+		case MEDIA_BUS_FMT_YUYV8_1X16:
 			fmtreg = 0x30;
 			fmtmuxreg = 0;
 			break;
@@ -996,8 +989,8 @@ static int ov5640_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 {
 	struct v4l2_mbus_framefmt *format;
 
-	format = v4l2_subdev_get_try_format(fh, 0);
-	format->code = V4L2_MBUS_FMT_UYVY8_1X16;
+	format = v4l2_subdev_get_try_format(subdev, fh->pad, 0);
+	format->code = MEDIA_BUS_FMT_UYVY8_1X16;
 	format->width = ov5640_frmsizes[OV5640_SIZE_VGA].width;
 	format->height = ov5640_frmsizes[OV5640_SIZE_VGA].height;
 	format->field = V4L2_FIELD_NONE;
@@ -1027,9 +1020,6 @@ static int ov5640_get_resources(struct ov5640 *ov5640, struct device *dev)
 		dev_err(dev, "Unable to get XVCLK\n");
 		return -ENODEV;
 	}
-	else {
-		dev_info(dev, "Using %s as XVCLK\n", ov5640->xvclk->name);
-	}
 
 	if (clk_round_rate(ov5640->xvclk, 24000000) != 24000000)
 		dev_warn(dev, "XVCLK set to rounded aproximate (%lu Hz)\n",
@@ -1045,7 +1035,7 @@ static int ov5640_get_resources(struct ov5640 *ov5640, struct device *dev)
 	if (!pdata->reg_avdd)
 		goto get_reg_dovdd;
 
-	ov5640->avdd = devm_regulator_get(dev, pdata->reg_avdd);
+	ov5640->avdd = devm_regulator_get(dev, "avdd");
 	if (IS_ERR(ov5640->avdd)) {
 		dev_err(dev, "Unable to get AVDD (%s) regulator\n",
 			pdata->reg_avdd);
@@ -1064,7 +1054,7 @@ get_reg_dovdd:
 	if (!pdata->reg_dovdd)
 		goto get_gpio_pwdn;
 
-	ov5640->dovdd = devm_regulator_get(dev, pdata->reg_dovdd);
+	ov5640->dovdd = devm_regulator_get(dev, "dvdd");
 	if (IS_ERR(ov5640->dovdd)) {
 		dev_err(dev, "Unable to get DOVDD (%s) regulator\n",
 			pdata->reg_dovdd);
@@ -1167,7 +1157,7 @@ static int ov5640_probe(struct i2c_client *i2c,
 		return ret;
 	}
 
-	ov5640->format.code = V4L2_MBUS_FMT_UYVY8_1X16;
+	ov5640->format.code = MEDIA_BUS_FMT_UYVY8_1X16;
 	ov5640->format.width = ov5640_frmsizes[OV5640_SIZE_VGA].width;
 	ov5640->format.height = ov5640_frmsizes[OV5640_SIZE_VGA].height;
 	ov5640->format.field = V4L2_FIELD_NONE;
