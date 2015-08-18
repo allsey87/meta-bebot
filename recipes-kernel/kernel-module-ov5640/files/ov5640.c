@@ -13,7 +13,6 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/videodev2.h>
 #include <linux/slab.h>
 #include <linux/i2c.h>
 #include <linux/log2.h>
@@ -30,9 +29,10 @@
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-ctrls.h>
 
+#include <uapi/linux/videodev2.h>
+#include <uapi/linux/v4l2-mediabus.h>
+
 #include "ov5640.h"
-//TESTING
-#include <linux/clk-private.h>
 
 static struct ov5640_platform_data ov5640_devtype = {
 	.reg_avdd = NULL,
@@ -52,12 +52,6 @@ static const struct i2c_device_id ov5640_i2c_id_table[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, ov5640_i2c_id_table);
-
-/* OV5640 has only one fixed colorspace per pixelcode */
-struct ov5640_datafmt {
-	enum v4l2_mbus_pixelcode	code;
-	enum v4l2_colorspace		colorspace;
-};
 
 struct ov5640_timing_cfg {
 	u16 x_addr_start;
@@ -132,7 +126,7 @@ struct ov5640 {
 	};
 
 	/* HW control */
-	struct clk *xvclk;
+	//struct clk *xvclk;
 	struct regulator *avdd;
 	struct regulator *dovdd;
 
@@ -144,6 +138,8 @@ struct ov5640 {
 	enum of_gpio_flags gpio_reset_flags;
 	int gpio_pwdn;
 	enum of_gpio_flags gpio_pwdn_flags;
+	int gpio_clk;
+	enum of_gpio_flags gpio_clk_flags;
 };
 
 static inline struct ov5640 *to_ov5640(struct v4l2_subdev *sd)
@@ -486,7 +482,7 @@ static unsigned long ov5640_get_pclk(struct v4l2_subdev *sd)
 	struct ov5640 *ov5640 = to_ov5640(sd);
 	unsigned long xvclk, vco, mipi_pclk;
 
-	xvclk = clk_get_rate(ov5640->xvclk);
+	xvclk = 24000000; /* clk_get_rate(ov5640->xvclk); */
 
 	vco = (xvclk / ov5640->clk_cfg.sc_pll_prediv) *
 		ov5640->clk_cfg.sc_pll_mult;
@@ -669,21 +665,15 @@ static int ov5640_s_power(struct v4l2_subdev *sd, int on)
 
 	if (on) {
 
-		if (ov5640->pdata->pre_poweron) {
-			ret = ov5640->pdata->pre_poweron(sd);
-			if (ret) {
-				dev_err(dev,
-					"Error in pre_poweron (%d)\n", ret);
-				goto err_pwr_on;
-			}
-		}
-
 		if (ov5640->dovdd) {
 			ret = regulator_enable(ov5640->dovdd);
 			if (ret) {
 				dev_err(dev,
 					"Error in enabling DOVDD (%d)\n", ret);
 				goto err_dvdd_en;
+			} else {
+				dev_info(dev,
+					"DVDD enabled!\n");
 			}
 		}
 
@@ -693,10 +683,21 @@ static int ov5640_s_power(struct v4l2_subdev *sd, int on)
 				dev_err(dev,
 					"Error in enabling AVDD (%d)\n", ret);
 				goto err_avdd_en;
+			} else {
+				dev_info(dev,
+					"AVDD enabled!\n");
 			}
 			usleep_range(5000, 5000);
 		}
 
+
+		if (gpio_is_valid(ov5640->gpio_clk)) {
+			gpio_set_value_cansleep(ov5640->gpio_clk,
+				       ov5640->gpio_clk_flags & OF_GPIO_ACTIVE_LOW ?
+				       0 : 1);
+		}
+
+/*
 		ret = clk_prepare(ov5640->xvclk);
 		if (ret) {
 			dev_err(dev, "Error in preparing XVCLK (%d)\n", ret);
@@ -708,29 +709,40 @@ static int ov5640_s_power(struct v4l2_subdev *sd, int on)
 			dev_err(dev, "Error in enabling XVCLK (%d)\n", ret);
 			goto err_clk_preen;
 		}
+*/
 
-		dev_info(dev, "XVCLK (%s) \n", ov5640->xvclk->name);
+		dev_info(dev, "XVCLK Enabled\n");
 
 		if (gpio_is_valid(ov5640->gpio_pwdn)) {
-			gpio_set_value(ov5640->gpio_pwdn,
+			gpio_set_value_cansleep(ov5640->gpio_pwdn,
 				       ov5640->gpio_pwdn_flags & OF_GPIO_ACTIVE_LOW ?
 				       1 : 0);
 		}
+
+		dev_info(dev, "PWDN Deasserted\n");
 		usleep_range(2000, 2000);
 	} else {
 		if (gpio_is_valid(ov5640->gpio_pwdn)) {
-			gpio_set_value(ov5640->gpio_pwdn,
+			gpio_set_value_cansleep(ov5640->gpio_pwdn,
 				       ov5640->gpio_pwdn_flags & OF_GPIO_ACTIVE_LOW ?
 				       0 : 1);
 		}
+		
+		if (gpio_is_valid(ov5640->gpio_clk)) {
+			gpio_set_value_cansleep(ov5640->gpio_clk,
+				       ov5640->gpio_clk_flags & OF_GPIO_ACTIVE_LOW ?
+				       1 : 0);
+		}
+		/*
 		clk_disable(ov5640->xvclk);
 		clk_unprepare(ov5640->xvclk);
+		*/
+	/*
 		if (ov5640->avdd)
 			regulator_disable(ov5640->avdd);
 		if (ov5640->dovdd)
 			regulator_disable(ov5640->dovdd);
-		if (ov5640->pdata->post_poweroff)
-			ov5640->pdata->post_poweroff(sd);
+	*/
 	}
 
 	return 0;
@@ -934,6 +946,8 @@ static int ov5640_registered(struct v4l2_subdev *subdev)
 	if (ret < 0) {
 		dev_err(&client->dev, "OV5640 power up failed\n");
 		return ret;
+	} else {
+		dev_err(&client->dev, "OV5640 power up success\n");
 	}
 
 	ret = ov5640_reg_read(client, 0x302A, &revision);
@@ -1022,13 +1036,27 @@ static int ov5640_get_resources(struct ov5640 *ov5640, struct device *dev)
 	const struct ov5640_platform_data *pdata = ov5640->pdata;
 	int ret = 0;
 
+	ov5640->gpio_clk = of_get_named_gpio_flags(dev->of_node,
+						    "clock-gpios",
+						    0,
+						    &ov5640->gpio_clk_flags);
+	if (!gpio_is_valid(ov5640->gpio_clk))
+		goto err_clk_set_rate;
+
+	if (gpio_request_one(ov5640->gpio_clk,
+			     ov5640->gpio_clk_flags & OF_GPIO_ACTIVE_LOW ?
+			     GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+			     "OV5640_CLK")) {
+		dev_err(dev, "Cannot request GPIO %d for clock\n", ov5640->gpio_clk);
+		ret = -ENODEV;
+		goto err_clk_set_rate;
+	}
+
+/*
 	ov5640->xvclk = of_clk_get(dev->of_node, 0);
 	if (IS_ERR(ov5640->xvclk)) {
 		dev_err(dev, "Unable to get XVCLK\n");
 		return -ENODEV;
-	}
-	else {
-		dev_info(dev, "Using %s as XVCLK\n", ov5640->xvclk->name);
 	}
 
 	if (clk_round_rate(ov5640->xvclk, 24000000) != 24000000)
@@ -1041,11 +1069,8 @@ static int ov5640_get_resources(struct ov5640 *ov5640, struct device *dev)
 		ret = -EINVAL;
 		goto err_clk_set_rate;
 	}
-
-	if (!pdata->reg_avdd)
-		goto get_reg_dovdd;
-
-	ov5640->avdd = devm_regulator_get(dev, pdata->reg_avdd);
+*/
+	ov5640->avdd = devm_regulator_get(dev, "avdd");
 	if (IS_ERR(ov5640->avdd)) {
 		dev_err(dev, "Unable to get AVDD (%s) regulator\n",
 			pdata->reg_avdd);
@@ -1060,11 +1085,7 @@ static int ov5640_get_resources(struct ov5640 *ov5640, struct device *dev)
 		goto err_reg_avdd;
 	}
 
-get_reg_dovdd:
-	if (!pdata->reg_dovdd)
-		goto get_gpio_pwdn;
-
-	ov5640->dovdd = devm_regulator_get(dev, pdata->reg_dovdd);
+	ov5640->dovdd = devm_regulator_get(dev, "dvdd");
 	if (IS_ERR(ov5640->dovdd)) {
 		dev_err(dev, "Unable to get DOVDD (%s) regulator\n",
 			pdata->reg_dovdd);
@@ -1079,7 +1100,6 @@ get_reg_dovdd:
 		goto err_reg_dovdd;
 	}
 
-get_gpio_pwdn:
 	ov5640->gpio_pwdn = of_get_named_gpio_flags(dev->of_node,
 						    "pwdn-gpios",
 						    0,
@@ -1114,7 +1134,7 @@ get_gpio_resetb:
 	}
 
 out:
-	dev_err(dev, "Got GPIOs {reset = %d, power down = %d}\n", ov5640->gpio_reset, ov5640->gpio_pwdn);
+	dev_err(dev, "GPIOs: nrst = %d, pdwn = %d, clk = %d\n", ov5640->gpio_reset, ov5640->gpio_pwdn, ov5640->gpio_clk);
 	return 0;
 
 err_gpio_resetb:
@@ -1124,7 +1144,11 @@ err_gpio_pwdn:
 err_reg_dovdd:
 err_reg_avdd:
 err_clk_set_rate:
+	if (gpio_is_valid(ov5640->gpio_clk))
+		gpio_free(ov5640->gpio_clk);
+	/*
 	clk_put(ov5640->xvclk);
+	*/
 
 	return ret;
 }
@@ -1135,7 +1159,11 @@ static void ov5640_put_resources(struct ov5640 *ov5640)
 		gpio_free(ov5640->gpio_reset);
 	if (gpio_is_valid(ov5640->gpio_pwdn))
 		gpio_free(ov5640->gpio_pwdn);
+	if (gpio_is_valid(ov5640->gpio_clk))
+		gpio_free(ov5640->gpio_clk);
+	/*
 	clk_put(ov5640->xvclk);
+	*/
 }
 
 static int ov5640_probe(struct i2c_client *i2c,
