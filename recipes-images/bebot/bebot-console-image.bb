@@ -42,8 +42,7 @@ MEDIA_TOOLS_INSTALL = " \
   raw2rgbpnm \
   v4l-utils \
   yavta \
-  opencv \
-  iss-videocapture \
+  blocktracker \
 "
 
 UTILITIES_INSTALL = " \

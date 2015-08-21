@@ -19,7 +19,10 @@ OECMAKE_SOURCEPATH = "${S}"
 OECMAKE_BUILDPATH = "${WORKDIR}/build-${TARGET_ARCH}"
 
 EXTRA_OECMAKE = "-DBUILD_PYTHON_SUPPORT=OFF \
+                 -DWITH_CUDA=OFF \
                  -DWITH_GTK=OFF \
+                 -DWITH_OPENCL=OFF \
+                 -DWITH_OPENEXR=OFF \
                  -DWITH_EIGEN=ON \
                  -DWITH_PNG=ON \
                  -DWITH_JPEG=ON \
