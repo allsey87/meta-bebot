@@ -99,10 +99,10 @@ namespace jafp {
 	double OvVideoCapture::get(int propId) {
 		switch(propId) {
 		case CV_CAP_PROP_FRAME_WIDTH:
-			return mode_.width;
+			return mode_.width / 4;
 			break;
 		case CV_CAP_PROP_FRAME_HEIGHT:
-			return mode_.height;
+			return mode_.height / 4;
 			break;
 		default:
 			return -1;
@@ -112,12 +112,22 @@ namespace jafp {
 	}
 
 	bool OvVideoCapture::retrieve(cv::Mat& image) {
+		const unsigned int scale = 4;
+		
 		if (!grab()) {
 			return false;
 		}	
 
-		image.create(mode_.height, mode_.width, CV_8UC1);
-		to_gray(buffer_, image.data, frame_size_);
+		image.create(mode_.height / scale,
+			     mode_.width / scale,
+			     CV_8UC1);
+		
+		for (int i = 0; i < mode_.height; i += scale) {
+			for (int j = 0; j < mode_.width; j += scale) {
+				image.data[(i / scale) * (mode_.width / scale) + (j / scale)] = buffer_[i * (mode_.width * 2) + (j*2 + 1)];
+			}
+		}
+		
 
 		return true;
 	}

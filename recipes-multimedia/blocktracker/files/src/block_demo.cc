@@ -450,7 +450,7 @@ public:
 			}
 
 			std::stringstream str;
-			str << "frame_" << frame << ".png";
+			str << "frame_" << std::setfill('0') << std::setw(5) << frame << ".png";
 			cv::imwrite(str.str(), image_annotated);
 		}
 	}
