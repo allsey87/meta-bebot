@@ -53,6 +53,8 @@ const string intro = "\n"
 #include <opencv2/core/core.hpp>
 #include <iss_capture.h>
 
+#include "tcp_image_socket.h"
+
 // April tags detector and various families that can be selected by command line option
 #include <apriltags/TagDetector.h>
 #include <apriltags/Tag36h11.h>
@@ -101,11 +103,24 @@ void wRo_to_euler(const Eigen::Matrix3d& wRo, double& yaw, double& pitch, double
 	roll  = standardRad(atan2(wRo(0,2)*s - wRo(1,2)*c, -wRo(0,1)*s + wRo(1,1)*c));
 }
 
+CTCPImageSocket& operator<<(CTCPImageSocket& m_cTCPImageSocket, const cv::Mat& m_cImage) {
+	if(m_cImage.type() == CV_8UC1) {
+		m_cTCPImageSocket.Write(m_cImage.data, m_cImage.size().width, m_cImage.size().height);
+	} else {
+		cv::Mat m_cGrayscale;
+		cvtColor(m_cImage, m_cGrayscale, CV_RGB2GRAY);
+		m_cTCPImageSocket.Write(m_cGrayscale.data, m_cGrayscale.size().width, m_cGrayscale.size().height);
+	}
+	return m_cTCPImageSocket;
+}
+
 
 class Demo {
 
 	AprilTags::TagDetector* m_tagDetector;
 	AprilTags::TagCodes m_tagCodes;
+
+	CTCPImageSocket m_cTCPImageSocket;
 
 	bool m_draw; // draw image and April tag detections?
 	bool m_timing; // print timing information for each tag extraction call
@@ -120,7 +135,7 @@ class Demo {
 
 	list<string> m_imgNames;
 
-	jafp::OvVideoCapture m_cap;
+	jafp::OvVideoCapture m_cISSCaptureDevice;
 
 	int m_exposure;
 	int m_gain;
@@ -135,6 +150,8 @@ public:
 		m_tagDetector(NULL),
 		m_tagCodes(AprilTags::tagCodes36h11),
 
+		m_cTCPImageSocket("10.0.0.1", 23268),
+
 		m_draw(true),
 		m_timing(false),
 
@@ -146,7 +163,7 @@ public:
 		m_px(317.056149),
 		m_py(181.126526),
 
-		m_cap(jafp::OvVideoCapture::OV_MODE_1280_720_30),
+		m_cISSCaptureDevice(jafp::OvVideoCapture::OV_MODE_1280_720_30),
 
 		m_exposure(-1),
 		m_gain(-1),
@@ -156,7 +173,7 @@ public:
 	{}
 
 	~Demo() {
-		m_cap.release();
+		m_cISSCaptureDevice.release();
 	}
 	
 	// changing the tag family
@@ -252,15 +269,15 @@ public:
 	}
 
 	void setupVideo() {
-		if (!m_cap.open()) {
+		if (!m_cISSCaptureDevice.open()) {
 			cerr << "ERROR: Can't find video device " << m_deviceId << "\n";
 			exit(1);
 		}
 
 		cout << "Camera successfully opened (ignore error messages above...)" << endl;
 		cout << "Actual resolution: "
-		     << m_cap.get(CV_CAP_PROP_FRAME_WIDTH) << "x"
-		     << m_cap.get(CV_CAP_PROP_FRAME_HEIGHT) << endl;
+		     << m_cISSCaptureDevice.get(CV_CAP_PROP_FRAME_WIDTH) << "x"
+		     << m_cISSCaptureDevice.get(CV_CAP_PROP_FRAME_HEIGHT) << endl;
 
 	}
 
@@ -303,17 +320,17 @@ public:
 		// for suitable factors.
 	}
 
-	void processImage(cv::Mat& image_gray, cv::Mat& image_annotated) {
+	void processImage(cv::Mat& image_gray) {
 		// alternative way is to grab, then retrieve; allows for
 		// multiple grab when processing below frame rate - v4l keeps a
 		// number of frames buffered, which can lead to significant lag
-		//      m_cap.grab();
-		//      m_cap.retrieve(image);
+		//      m_cISSCaptureDevice.grab();
+		//      m_cISSCaptureDevice.retrieve(image);
 
 		// detect April tags (requires a gray scale image)
 
-		image_annotated.create(image_gray.size(), CV_8UC3);
-		cv::cvtColor(image_gray, image_annotated, CV_GRAY2RGB);
+		//image_annotated.create(image_gray.size(), CV_8UC3);
+		//cv::cvtColor(image_gray, image_annotated, CV_GRAY2RGB);
 
 		// GetTags
 		vector<AprilTags::TagDetection> detections = m_tagDetector->extractTags(image_gray);
@@ -380,20 +397,20 @@ public:
 			// project points is checking correctness
 			cv::projectPoints(TgtPts, cb_rvec, cb_tvec, cameraMatrix, distParam, outImgPoints);
 
-			cv::line(image_annotated, outImgPoints[0], outImgPoints[1], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_annotated, outImgPoints[1], outImgPoints[2], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_annotated, outImgPoints[2], outImgPoints[3], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_annotated, outImgPoints[3], outImgPoints[0], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[0], outImgPoints[1], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[1], outImgPoints[2], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[2], outImgPoints[3], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[3], outImgPoints[0], cv::Scalar(255,0,0,0), 2);
 
-			cv::line(image_annotated, outImgPoints[4], outImgPoints[5], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_annotated, outImgPoints[5], outImgPoints[6], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_annotated, outImgPoints[6], outImgPoints[7], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_annotated, outImgPoints[7], outImgPoints[4], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[4], outImgPoints[5], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[5], outImgPoints[6], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[6], outImgPoints[7], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[7], outImgPoints[4], cv::Scalar(255,0,0,0), 2);
 
-			cv::line(image_annotated, outImgPoints[0], outImgPoints[4], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_annotated, outImgPoints[1], outImgPoints[5], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_annotated, outImgPoints[2], outImgPoints[6], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_annotated, outImgPoints[3], outImgPoints[7], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[0], outImgPoints[4], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[1], outImgPoints[5], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[2], outImgPoints[6], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[3], outImgPoints[7], cv::Scalar(255,0,0,0), 2);
 
 
 			cv::Matx33f r;
@@ -421,7 +438,7 @@ public:
 		// show the current image including any detections
 		for (int i=0; i<detections.size(); i++) {
 			// also highlight in the image
-			detections[i].draw(image_annotated);
+			//detections[i].draw(gray_annotated);
 		}
 	}
 
@@ -430,16 +447,16 @@ public:
 	void loop() {
 
 		cv::Mat image_gray;
-		cv::Mat image_annotated;
+		//cv::Mat image_annotated;
 
 		int frame = 0;
 		double last_t = tic();
 		while (true) {
 
 			// capture frame
-			m_cap >> image_gray;
+			m_cISSCaptureDevice >> image_gray;
 
-			processImage(image_gray, image_annotated);
+			processImage(image_gray);
 
 			// print out the frame rate at which image frames are being processed
 			frame++;
@@ -448,10 +465,14 @@ public:
 				cout << "  " << 10./(t-last_t) << " fps" << endl;
 				last_t = t;
 			}
+			
+			m_cTCPImageSocket << image_gray;
 
+			/*
 			std::stringstream str;
 			str << "frame_" << std::setfill('0') << std::setw(5) << frame << ".png";
-			cv::imwrite(str.str(), image_annotated);
+			cv::imwrite(str.str(), image_gray);
+			*/
 		}
 	}
 

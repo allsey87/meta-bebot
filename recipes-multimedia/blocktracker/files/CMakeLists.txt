@@ -16,7 +16,7 @@ find_package(AprilTags REQUIRED)
 include_directories(${AprilTags_INCLUDE_DIR})
 
 # Build the application
-add_executable(blocktracker src/block_demo.cc)
+add_executable(blocktracker src/block_demo.cc src/tcp_image_socket.cc)
 target_link_libraries(blocktracker ${ISSCapture_LIB} ${AprilTags_LIB} ${OpenCV_LIBS})
 install(TARGETS blocktracker DESTINATION bin)
 

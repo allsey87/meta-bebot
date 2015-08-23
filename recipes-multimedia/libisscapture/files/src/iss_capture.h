@@ -86,6 +86,8 @@ namespace jafp {
 		bool open_internal();
 		bool start_capturing();
 
+		const unsigned int scale = 2;
+
 	};
 
 }

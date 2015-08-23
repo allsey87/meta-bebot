@@ -99,10 +99,10 @@ namespace jafp {
 	double OvVideoCapture::get(int propId) {
 		switch(propId) {
 		case CV_CAP_PROP_FRAME_WIDTH:
-			return mode_.width / 4;
+			return mode_.width / scale;
 			break;
 		case CV_CAP_PROP_FRAME_HEIGHT:
-			return mode_.height / 4;
+			return mode_.height / scale;
 			break;
 		default:
 			return -1;
@@ -112,7 +112,6 @@ namespace jafp {
 	}
 
 	bool OvVideoCapture::retrieve(cv::Mat& image) {
-		const unsigned int scale = 4;
 		
 		if (!grab()) {
 			return false;
@@ -146,6 +145,7 @@ namespace jafp {
 			buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 			buf.memory = V4L2_MEMORY_MMAP;
 			buf.index = i;
+
 			if (ioctl(fd_, VIDIOC_QUERYBUF, &buf) < 0) {
 				return false;
 			}
@@ -188,11 +188,9 @@ namespace jafp {
 		// Mode's size combined with default format's number of channels
 		frame_size_ = mode_.width * mode_.height * DefaultFormatChannels;
 		buffer_ = new unsigned char[frame_size_];
-		::fprintf(stderr, "z");
 		if ((fd_ = ::open("/dev/video0", O_RDWR, 0)) < 0) {
 			return false;
 		}
-		::fprintf(stderr, "a");
 		if (ioctl(fd_, VIDIOC_S_INPUT, &input) < 0) {
 			close(fd_);
 			return false;
@@ -246,14 +244,10 @@ namespace jafp {
 			return false;
 		}
 
-		::fprintf(stderr, "g");
-
 		if (ioctl(fd_, VIDIOC_G_FMT, &fmt) < 0) {
 			close(fd_);
 			return false;
 		}
-
-		::fprintf(stderr, "h");
 
 		memset(&req, 0, sizeof (req));
 		req.count = NumBuffers;
@@ -263,12 +257,9 @@ namespace jafp {
 		if (ioctl (fd_, VIDIOC_REQBUFS, &req) < 0) {
 			return false;
 		}
-
-		::fprintf(stderr, "i");
 		if (req.count < 2) {
 			return false;
 		}
-		::fprintf(stderr, "j");
 		return true;
 	}
 
