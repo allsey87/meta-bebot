@@ -12,7 +12,7 @@
 
 #define MAGIC 0x17923349ab10ea9aL
 
-CTCPImageSocket::CTCPImageSocket(const char* host, int port) {
+int CTCPImageSocket::Open(const char* host, int port) {
 	fprintf(stderr, "Connecting to '%s' on port %d\n", host, port);
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);

@@ -6,7 +6,8 @@
 class CTCPImageSocket {
 public:
 
-	CTCPImageSocket(const char* host, int port);
+
+	int Open(const char* host, int port);
 
 	~CTCPImageSocket();
 

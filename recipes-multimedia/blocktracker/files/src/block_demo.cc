@@ -22,6 +22,11 @@ using namespace std;
 #include <list>
 #include <sys/time.h>
 
+#define PREAMBLE1  0xF0
+#define PREAMBLE2  0xCA
+#define POSTAMBLE1 0x53
+#define POSTAMBLE2 0x0F
+
 const string usage = "\n"
 	"Usage:\n"
 	"  apriltags_demo [OPTION...] [IMG1 [IMG2...]]\n"
@@ -36,9 +41,6 @@ const string usage = "\n"
 	"  -W <width>      Image width (default 640, availability depends on camera)\n"
 	"  -H <height>     Image height (default 480, availability depends on camera)\n"
 	"  -S <size>       Tag size (square black frame) in meters\n"
-	"  -E <exposure>   Manually set camera exposure (default auto; range 0-10000)\n"
-	"  -G <gain>       Manually set camera gain (default auto; range 0-255)\n"
-	"  -B <brightness> Manually set the camera brightness (default 128; range 0-255)\n"
 	"\n";
 
 const string intro = "\n"
@@ -54,6 +56,7 @@ const string intro = "\n"
 #include <iss_capture.h>
 
 #include "tcp_image_socket.h"
+#include "uart_socket.h"
 
 // April tags detector and various families that can be selected by command line option
 #include <apriltags/TagDetector.h>
@@ -92,23 +95,13 @@ inline double standardRad(double t) {
 	return t;
 }
 
-/**
- * Convert rotation matrix to Euler angles
- */
-void wRo_to_euler(const Eigen::Matrix3d& wRo, double& yaw, double& pitch, double& roll) {
-	yaw = standardRad(atan2(wRo(1,0), wRo(0,0)));
-	double c = cos(yaw);
-	double s = sin(yaw);
-	pitch = standardRad(atan2(-wRo(2,0), wRo(0,0)*c + wRo(1,0)*s));
-	roll  = standardRad(atan2(wRo(0,2)*s - wRo(1,2)*c, -wRo(0,1)*s + wRo(1,1)*c));
-}
 
 CTCPImageSocket& operator<<(CTCPImageSocket& m_cTCPImageSocket, const cv::Mat& m_cImage) {
 	if(m_cImage.type() == CV_8UC1) {
 		m_cTCPImageSocket.Write(m_cImage.data, m_cImage.size().width, m_cImage.size().height);
 	} else {
 		cv::Mat m_cGrayscale;
-		cvtColor(m_cImage, m_cGrayscale, CV_RGB2GRAY);
+		cv::cvtColor(m_cImage, m_cGrayscale, CV_RGB2GRAY);
 		m_cTCPImageSocket.Write(m_cGrayscale.data, m_cGrayscale.size().width, m_cGrayscale.size().height);
 	}
 	return m_cTCPImageSocket;
@@ -121,6 +114,12 @@ class Demo {
 	AprilTags::TagCodes m_tagCodes;
 
 	CTCPImageSocket m_cTCPImageSocket;
+
+	CPacketControlInterface m_cBaseInterface;
+	CPacketControlInterface m_cManipulatorInterface;
+
+	CUARTSocket m_cBaseUARTSocket;
+	CUARTSocket m_cManipulatorUARTSocket;
 
 	bool m_draw; // draw image and April tag detections?
 	bool m_timing; // print timing information for each tag extraction call
@@ -150,7 +149,8 @@ public:
 		m_tagDetector(NULL),
 		m_tagCodes(AprilTags::tagCodes36h11),
 
-		m_cTCPImageSocket("10.0.0.1", 23268),
+		m_cBaseInterface(m_cBaseUARTSocket),
+		m_cManipulatorInterface(m_cManipulatorUARTSocket),
 
 		m_draw(true),
 		m_timing(false),
@@ -189,7 +189,7 @@ public:
 	// parse command line options to change default behavior
 	void parseOptions(int argc, char* argv[]) {
 		int c;
-		while ((c = getopt(argc, argv, ":h?adtC:F:H:S:W:E:G:B:D:")) != -1) {
+		while ((c = getopt(argc, argv, ":h?adtC:F:H:S:W:D:")) != -1) {
 			// Each option character has to be in the string in getopt();
 			// the first colon changes the error character from '?' to ':';
 			// a colon after an option means that there is an extra
@@ -225,27 +225,6 @@ public:
 				m_width = atoi(optarg);
 				m_px = m_width/2;
 				break;
-			case 'E':
-#ifndef EXPOSURE_CONTROL
-				cout << "Error: Exposure option (-E) not available" << endl;
-				exit(1);
-#endif
-				m_exposure = atoi(optarg);
-				break;
-			case 'G':
-#ifndef EXPOSURE_CONTROL
-				cout << "Error: Gain option (-G) not available" << endl;
-				exit(1);
-#endif
-				m_gain = atoi(optarg);
-				break;
-			case 'B':
-#ifndef EXPOSURE_CONTROL
-				cout << "Error: Brightness option (-B) not available" << endl;
-				exit(1);
-#endif
-				m_brightness = atoi(optarg);
-				break;
 			case 'D':
 				m_deviceId = atoi(optarg);
 				break;
@@ -266,6 +245,16 @@ public:
 
 	void setup() {
 		m_tagDetector = new AprilTags::TagDetector(m_tagCodes);
+
+		cout << "Connecting to base microcontroller:";
+		m_cBaseUARTSocket.Open("/dev/ttySC1", 57600);
+		cout << "done" << endl;
+		cout << "Connecting to manipulator microcontroller:";
+		m_cManipulatorUARTSocket.Open("/dev/ttySC2", 57600);
+		cout << "done" << endl;
+		cout << "Connecting to dev machine for image streaming:";
+		m_cTCPImageSocket.Open("10.0.0.1", 23268);
+		cout << "done" << endl;
 	}
 
 	void setupVideo() {
@@ -281,44 +270,6 @@ public:
 
 	}
 
-	void print_detection(AprilTags::TagDetection& detection) const {
-		cout << "  Id: " << detection.id
-		     << " (Hamming: " << detection.hammingDistance << ")";
-
-		// recovering the relative pose of a tag:
-
-		// NOTE: for this to be accurate, it is necessary to use the
-		// actual camera parameters here as well as the actual tag size
-		// (m_fx, m_fy, m_px, m_py, m_tagSize)
-
-		Eigen::Vector3d translation;
-		Eigen::Matrix3d rotation;
-		detection.getRelativeTranslationRotation(m_tagSize, m_fx, m_fy, m_px, m_py,
-							 translation, rotation);
-
-		Eigen::Matrix3d F;
-		F <<
-			1, 0,  0,
-			0,  -1,  0,
-			0,  0,  1;
-		Eigen::Matrix3d fixed_rot = F*rotation;
-		double yaw, pitch, roll;
-		wRo_to_euler(fixed_rot, yaw, pitch, roll);
-
-		cout << "  distance=" << translation.norm()
-		     << "m, x=" << translation(0)
-		     << ", y=" << translation(1)
-		     << ", z=" << translation(2)
-		     << ", yaw=" << yaw
-		     << ", pitch=" << pitch
-		     << ", roll=" << roll
-		     << endl;
-
-		// Also note that for SLAM/multi-view application it is better to
-		// use reprojection error of corner points, because the noise in
-		// this relative pose is very non-Gaussian; see iSAM source code
-		// for suitable factors.
-	}
 
 	void processImage(cv::Mat& image_gray) {
 		// alternative way is to grab, then retrieve; allows for
@@ -360,9 +311,23 @@ public:
 						 0,  0,  1);
 			cv::Vec4f distParam(0,0,0,0); // all 0?
 			cv::solvePnP(objPts, imgPts, cameraMatrix, distParam, ct_rvec, ct_tvec);
-			/*cv::Matx33d r;
-			  cv::Rodrigues(rvec, r);*/
+			cv::Mat 
+				cb_rvec, 
+				cb_tvec, 
+				tb_rvec,
+				tb_tvec = cv::Mat::zeros(3,1,CV_32F);
+        
+			/* initialization of zero rotation vector */
+			cv::Rodrigues(cv::Mat::eye(3,3,CV_32F), tb_rvec);
 
+			/* tb_tvec projects from the tag into the center of the block */
+			tb_tvec.at<float>(2) = -0.0275;
+
+			/* Compose the tag-to-block and camera-to-tag transformations to get
+			   the camera-to-block transformation */
+			cv::composeRT(tb_rvec, tb_tvec, ct_rvec, ct_tvec, cb_rvec, cb_tvec);
+
+			/* project points is checking correctness */
 			std::vector<cv::Point3f> TgtPts;
 
 			TgtPts.push_back(cv::Point3f( 0.0275,  0.0275, 0.0275));
@@ -376,60 +341,75 @@ public:
 			TgtPts.push_back(cv::Point3f(-0.0275,  0.0275, -0.0275));
 
 			std::vector<cv::Point2f> outImgPoints;
-         
-			// at this point rvec and tvec represent the camera to tag transform
-			// after transforming rvec and tvec correctly, we have the transform from camera to block
 
-			cv::Mat 
-				cb_rvec, 
-				cb_tvec, 
-				tb_rvec,
-				tb_tvec = cv::Mat::zeros(3,1,CV_32F);
-        
-			cv::Rodrigues(cv::Mat::eye(3,3,CV_32F), tb_rvec);
-
-			tb_tvec.at<float>(2) = -0.0275;
-
-			cv::composeRT(tb_rvec, tb_tvec, ct_rvec, ct_tvec, cb_rvec, cb_tvec);
-
-			// cb_rvec and cb_tvec are the transforms from block to camera
-
-			// project points is checking correctness
 			cv::projectPoints(TgtPts, cb_rvec, cb_tvec, cameraMatrix, distParam, outImgPoints);
 
-			cv::line(image_gray, outImgPoints[0], outImgPoints[1], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_gray, outImgPoints[1], outImgPoints[2], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_gray, outImgPoints[2], outImgPoints[3], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_gray, outImgPoints[3], outImgPoints[0], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[0], outImgPoints[1], cv::Scalar(255,255,255,0), 2);
+			cv::line(image_gray, outImgPoints[1], outImgPoints[2], cv::Scalar(255,255,255,0), 2);
+			cv::line(image_gray, outImgPoints[2], outImgPoints[3], cv::Scalar(255,255,255,0), 2);
+			cv::line(image_gray, outImgPoints[3], outImgPoints[0], cv::Scalar(255,255,255,0), 2);
 
-			cv::line(image_gray, outImgPoints[4], outImgPoints[5], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_gray, outImgPoints[5], outImgPoints[6], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_gray, outImgPoints[6], outImgPoints[7], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_gray, outImgPoints[7], outImgPoints[4], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[4], outImgPoints[5], cv::Scalar(255,255,255,0), 2);
+			cv::line(image_gray, outImgPoints[5], outImgPoints[6], cv::Scalar(255,255,255,0), 2);
+			cv::line(image_gray, outImgPoints[6], outImgPoints[7], cv::Scalar(255,255,255,0), 2);
+			cv::line(image_gray, outImgPoints[7], outImgPoints[4], cv::Scalar(255,255,255,0), 2);
 
-			cv::line(image_gray, outImgPoints[0], outImgPoints[4], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_gray, outImgPoints[1], outImgPoints[5], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_gray, outImgPoints[2], outImgPoints[6], cv::Scalar(255,0,0,0), 2);
-			cv::line(image_gray, outImgPoints[3], outImgPoints[7], cv::Scalar(255,0,0,0), 2);
+			cv::line(image_gray, outImgPoints[0], outImgPoints[4], cv::Scalar(255,255,255,0), 2);
+			cv::line(image_gray, outImgPoints[1], outImgPoints[5], cv::Scalar(255,255,255,0), 2);
+			cv::line(image_gray, outImgPoints[2], outImgPoints[6], cv::Scalar(255,255,255,0), 2);
+			cv::line(image_gray, outImgPoints[3], outImgPoints[7], cv::Scalar(255,255,255,0), 2);
 
-
-			cv::Matx33f r;
-			cv::Rodrigues(cb_rvec, r);
-
-			cv::Matx44f cT(r(0,0), r(0,1), r(0,2), cb_tvec.at<float>(0),
-				       r(1,0), r(1,1), r(1,2), cb_tvec.at<float>(1),
-				       r(2,0), r(2,1), r(2,2), cb_tvec.at<float>(2),
-				       0,      0,      0,       1);
-
+			/* extract the position and rotation of the block, relative to the camera */
+			cv::Matx33f cR;
+			cv::Rodrigues(cb_rvec, cR);
+			cv::Matx44f cT(cR(0,0), cR(0,1), cR(0,2), cb_tvec.at<float>(0),
+				       cR(1,0), cR(1,1), cR(1,2), cb_tvec.at<float>(1),
+				       cR(2,0), cR(2,1), cR(2,2), cb_tvec.at<float>(2),
+				       0,       0,       0,       1);
 			cv::Matx44f cM( 0,  0,  1,  0,
-					-1,  0,  0,  0,
+				       -1,  0,  0,  0,
 					0, -1,  0,  0,
 					0,  0,  0,  1);
-
 			cv::Matx44f cMT(cM, cT, cv::Matx_MatMulOp());
+			/* Dump the output to the console */
+			cout << fixed << setprecision(3) << "trans = [" << cMT(0,3) << ", " << cMT(1,3) << ", " << cMT(2,3) << "]" << endl;
 
-			cout << fixed <<setprecision(3) << "[" << cMT(0,3) << ", " << cMT(1,3) << ", " << cMT(2,3) << "]" << endl;
-        
+			cv::Matx33f cF( 1,  0,  0, 
+					0, -1,  0,
+					0,  0,  1);
+			cv::Matx33f cFR(cF, cR, cv::Matx_MatMulOp());
+			float fYaw, fPitch, fRoll;
+			fYaw = standardRad(atan2(cFR(1,0), cFR(0,0)));
+			fPitch = standardRad(atan2(-cFR(2,0), cFR(0,0) * cos(fYaw) + cFR(1,0) * sin(fYaw)));
+			fRoll  = standardRad(atan2(cFR(0,2) * sin(fYaw) - cFR(1,2) * cos(fYaw), -cFR(0,1) * sin(fYaw) + cFR(1,1) * cos(fYaw)));
+			/* Dump the output to the console */
+			cout << fixed << setprecision(3) << "rot = [" << fYaw << ", " << fPitch << ", " << fRoll << "]" << endl;
+
+			/* Get the distance */
+			float fDist = sqrt(cMT(0,3) * cMT(0,3) + cMT(1,3) * cMT(1,3) + cMT(2,3) * cMT(2,3));
+			cout << fixed << setprecision(3) << "dist = " << fDist << endl;
+
+			/* For only the first detection */
+			if(i == 0) {
+				int8_t pnSpeed[2];
+				uint8_t punData[2];
+				float fTargetDist = 0.15; // 25cm
+				float fDistError = fDist - fTargetDist;
+				
+				pnSpeed[0] = (fDistError * 128 > INT8_MAX) ? INT8_MAX : ((fDistError * 128 < INT8_MIN) ? INT8_MIN : fDistError * 128);
+				pnSpeed[1] = (fDistError * 128 > INT8_MAX) ? INT8_MAX : ((fDistError * 128 < INT8_MIN) ? INT8_MIN : fDistError * 128);
+
+				punData[0] = reinterpret_cast<uint8_t&>(pnSpeed[0]);
+				punData[1] = reinterpret_cast<uint8_t&>(pnSpeed[1]);
+
+				m_cBaseInterface.SendPacket(CPacketControlInterface::CPacket::EType::SET_DDS_SPEED, punData, 2);
+			}
+
+		}
+
+		if(detections.size() == 0) {
+			uint8_t punZeroSpeed[2] = {0,0};
+			m_cBaseInterface.SendPacket(CPacketControlInterface::CPacket::EType::SET_DDS_SPEED, punZeroSpeed, 2);
 		}
 
 		cout << "---" << endl;
@@ -448,6 +428,10 @@ public:
 
 		cv::Mat image_gray;
 		//cv::Mat image_annotated;
+		uint8_t punSwitchOn[1] = {1};
+		uint8_t punSwitchOff[1] = {0};
+
+		m_cBaseInterface.SendPacket(CPacketControlInterface::CPacket::EType::SET_DDS_ENABLE, punSwitchOn, 1);
 
 		int frame = 0;
 		double last_t = tic();
@@ -469,9 +453,9 @@ public:
 			m_cTCPImageSocket << image_gray;
 
 			/*
-			std::stringstream str;
-			str << "frame_" << std::setfill('0') << std::setw(5) << frame << ".png";
-			cv::imwrite(str.str(), image_gray);
+			  std::stringstream str;
+			  str << "frame_" << std::setfill('0') << std::setw(5) << frame << ".png";
+			  cv::imwrite(str.str(), image_gray);
 			*/
 		}
 	}

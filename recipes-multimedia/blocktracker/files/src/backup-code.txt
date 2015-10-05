@@ -1,0 +1,103 @@
+enum class ECommand : uint8_t {
+		SET_DDS_ENABLE = 0x10,
+		SET_DDS_SPEED = 0x11,
+		GET_DDS_SPEED = 0x12
+	};
+
+	struct SSpeed {
+		uint8_t Left;
+		uint8_t Right;
+	};
+
+	class CRxPacket {
+		size_t m_unDataLength;
+		std::vector<uint8_t> m_vecData;
+		
+	public:
+		bool IsOk() const {
+			bool bIsOk = true;
+			/* check header */
+			bIsOk = bIsOk && (m_vecData.size() >= BASE_LENGTH);
+			bIsOk = bIsOk && (m_vecData[PREAMBLE1_IDX] == PREAMBLE1);
+			bIsOk = bIsOk && (m_vecData[PREAMBLE2_IDX] == PREAMBLE2);
+			/* check payload size */
+			bIsOk = bIsOk && (m_vecData.size() == m_vecData[DATA_SIZE_IDX] + BASE_LENGTH);
+			/* compute the checksum */
+			if(bIsOk) {
+				uint8_t unChecksum = 0;
+				for(const std::vector<uint8_t>::iterator itData = m_vecData.begin();
+				    itData != m_vecData.end();
+				    itData++) {
+					unChecksum += *itData;
+				}
+				bIsOk = bIsOk && (m_vecData[DATA_START_IDX + m_vecData[DATA_SIZE_IDX]] == unChecksum);
+			}
+			return bIsOk;
+		}
+
+		bool HasData() const {
+			return (m_vecData[DATA_SIZE_IDX] != 0);
+		}
+
+		bool IsResponseTo(ECommand e_command) const {
+			return (m_vecData[COMMAND_IDX] == static_cast<uint8_t>(e_command));
+		}
+
+		void GetData(void* p_buffer, std::size_t un_length) const {
+			/* respect the minimum of both buffers ! */
+			if(un_length > m_unDataLength) {
+				un_length = m_unDataLength; 
+			}
+			std::memcpy(p_buffer, &m_vecData[0], un_length);
+			return un_length;
+		}
+     
+	};
+
+	class CTxPacket {
+	public:
+		SPacket(ECommand e_command, void* p_buffer, size_t un_count) {
+			Create(e_command, p_buffer, un_count);
+		}
+
+	private:
+		void Create(ECommand e_command, void* p_data, size_t un_data_len) {
+			/* Add the preamble */
+			m_vecData.push_back(PREAMBLE1);
+			m_vecData.push_back(PREAMBLE2);
+			/* Add the command */
+			m_vecData.push_back(static_cast<uint8_t>(e_command));
+			/* Add length of the data */
+			m_vecData.push_back(static_cast<uint8_t>(un_count));
+			/* Add the data / arguments */
+			for(unsigned int i = 0; i < un_count; i++) {
+				m_vecData.push_back(p_buffer[i]);
+			}
+			/* Compute checksum */
+			uint8_t unChecksum = 0;
+			for(std::vector<uint8_t>::iterator itData = m_vecData.begin() + 2;
+			    itData != m_vecData.end();
+			    itData++) {
+				unChecksum += *itData;
+			}
+			/* Add the checksum */
+			m_vecData.push_back(unChecksum);
+			/* Add the postamble */
+			m_vecData.push_back(POSTAMBLE1);
+			m_vecData.push_back(POSTAMBLE2);
+		}
+
+		std::vector<uint8_t> m_cData;
+	};
+
+	CUARTSocket& operator<<(CUARTSocket& c_uart_socket, const CTxPacket& c_tx_packet) {
+		c_uart_socket.Write(&c_tx_packet.m_cData[0], c_tx_packet.m_cData.size());
+		return c_uart_socket;
+	}
+
+
+	CUARTSocket& operator>>(CUARTSocket& c_uart_socket, CRxPacket& c_rx_packet) {
+		return c_uart_socket;
+	}
+	       
+
