@@ -25,6 +25,7 @@ SRC_URI = " \
     file://0002-Work-in-progress-commit-updating-the-OMAP4ISS-driver.patch \
     file://0003-Fixed-getting-V4L2_CID_PIXEL_RATE-issue-added-DMA-ch.patch \
     file://0004-Update-OV5640-and-dependencies-in-DT.patch \
+    file://0005-Added-hacks-to-support-SC16IS7XX-in-3.17.patch \
     file://${BOOT_SPLASH} \
 "
 

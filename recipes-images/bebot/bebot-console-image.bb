@@ -42,7 +42,6 @@ MEDIA_TOOLS_INSTALL = " \
   raw2rgbpnm \
   v4l-utils \
   yavta \
-  blocktracker \
 "
 
 UTILITIES_INSTALL = " \
@@ -53,6 +52,7 @@ UTILITIES_INSTALL = " \
   gzip \
   less \
   nano \
+  picocom \
   sudo \
   tar \
   wget \
